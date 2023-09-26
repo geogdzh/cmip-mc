@@ -1,0 +1,12 @@
+name = "dev"
+uuid = "9df20b7c-6cfb-43c8-acb5-6c9b19bed053"
+authors = ["mgeo "]
+version = "0.1.0"
+
+[deps]
+CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
+Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
+NetCDF = "30363a11-5582-574a-97bb-aa9a979735b9"
+Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
+SixelTerm = "65edfddc-f399-4499-8369-a1bd38eee2ea"
+Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
