@@ -58,3 +58,14 @@ function slice_map(d::ncData, lon1, lon2, lat1, lat2)
 end
 
 (d::ncData)(lon1, lon2, lat1, lat2) = slice_map(d, lon1, lon2, lat1, lat2)
+
+function slice_time(d::ncData, start_year, end_year)
+    #inclusive
+    first = findfirst(x -> x == DateTime(start_year, 1, 1), d.timevec)
+    last = findfirst(x -> x == DateTime(end_year, 12, 1), d.timevec)
+
+    dataslice = d.data[:,:,first:last]
+    newtimevec = d.timevec[first:last]
+    return ncData(dataslice, d.lonvec, d.latvec, newtimevec)
+
+end

@@ -24,7 +24,7 @@ heatmap(refs[1][2])
 heatmap(refs[1][3])
 
 # now we have a monthly dict of three reference images
-# so, next, want to "walk through each simulation and get a markov chain (one for each month)
+# so, next, want to "walk through" each simulation and get a markov chain (one for each month)
 
 
 include("simulator.jl")
