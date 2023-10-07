@@ -34,8 +34,11 @@ ts = ncData(file, "ts")
 
 ts.latvec
 
-ts_slice = slice_map(ts, -20, 15, 0, 30)
+# ts_slice = slice_map(ts, -20, 15, 0, 30)
+ts_slice = ts(-85, -65, 35, 48) #Eastern US coast sorta
 heatmap(ts_slice.data[:,:,1])
 
 heatmap(ts.data[:,:,1])
+
+month(ts.timevec[1])
 

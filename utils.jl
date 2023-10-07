@@ -4,11 +4,6 @@ function get_tvec(filename)
    [ DateTime(1850,1,1)+Month(x) for x in range(0,length(ncread(filename, "time"))-1)]
 end
 
-# function index(vec, value) 
-
-#     return findfirst(x -> x==value, vec)
-# end
-
 function find_closest(vec, value)
     #finds index of closest value in vector
     geq = searchsortedfirst(vec, value)
@@ -30,6 +25,21 @@ function convert_lon(lon)
     end
 end
 
+struct ncData{D, NV, TV, T}
+    data::D
+    lonvec::NV
+    latvec::TV
+    timevec::T
+end
+
+function ncData(file, varname)
+    data = ncread(file, varname)
+    lonvec = ncread(file, "lon")
+    latvec = ncread(file, "lat")
+    timevec = [DateTime(1850,1,1)+Month(x) for x in range(0,length(ncread(file, "time"))-1)]
+    return ncData(data, lonvec, latvec, timevec)
+end
+
 function slice_map(d::ncData, lon1, lon2, lat1, lat2)
     lon1 = find_closest(d.lonvec, convert_lon(lon1))
     lon2 = find_closest(d.lonvec, convert_lon(lon2))
@@ -47,20 +57,4 @@ function slice_map(d::ncData, lon1, lon2, lat1, lat2)
     return ncData(dataslice, newlonvec, newlatvec, d.timevec)
 end
 
-# Base.getindex(m::ncData, ind::Int) = slice #see abt implementing this later
-
-struct ncData{D, NV, TV, T}
-    data::D
-    lonvec::NV
-    latvec::TV
-    timevec::T
-end
-
-function ncData(file, varname)
-    data = ncread(file, varname)
-    lonvec = ncread(file, "lon")
-    latvec = ncread(file, "lat")
-    timevec = [DateTime(1850,1,1)+Month(x) for x in range(0,length(ncread(file, "time"))-1)]
-    return ncData(data, lonvec, latvec, timevec)
-end
-
+(d::ncData)(lon1, lon2, lat1, lat2) = slice_map(d, lon1, lon2, lat1, lat2)
