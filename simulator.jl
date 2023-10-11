@@ -41,7 +41,7 @@ end
 #to do it via eof:
 #our 'ref' here is a matrix U, columns are a basis for the data
 
-function eof_assignment(snap, U)
+function eof_assignment(snap, U) #this isn't what we want actually
     #snap is just a flat image
     v = reshape_data(snap)
     proj = projection(v, U)
