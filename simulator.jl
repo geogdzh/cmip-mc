@@ -18,10 +18,6 @@ end
 
 ##### assignment functions
 
-# function closest_image(snap, refs, month)
-#     #
-# end
-
 #function to find closest image
 function compare(img, refs)
     #returns index of closest ref 
@@ -50,13 +46,10 @@ end
 
 #helper
 function projection(v, U)
-    # not sure how this is workign with orthonormality (?) but will check later
-    proj = zeros(size(v))
-    for i in 1:size(U, 2)
-        # Calculate the dot product between v and the i-th column of U
-        dot_product = dot(v, U[:, i])
-        # Add the projection of v onto the i-th basis vector to proj
-        proj += dot_product * U[:, i]
+    dim = size(U,2)
+    proj = zeros(dim)
+    for i in 1:dim
+        proj[i] = dot(v, U[:, i])/dot(U[:,i], U[:,i])
     end
     return proj
 end

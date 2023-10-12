@@ -2,6 +2,7 @@ using NetCDF, Dates, Statistics, CairoMakie, LinearAlgebra
 include("utils.jl")
 include("simulator.jl")
 
+using JLD
 all_eofs_cat = JLD.load("data/all_eofs_historical.jld", "all_eofs_cat")
 # all_eofs = [all_eofs_cat[:,:,i] for i in 1:100]
 
@@ -24,4 +25,31 @@ file = file_head*file_tail
 ts = ncData(file, "ts")
 v = ts.data[:,:, 1]
 
-# projection(v, basis)
+timeseries = []
+for i in 1:500
+    v = ts.data[:,:,i]
+    push!(timeseries,projection(reshape_data(v), basis))
+end
+timeseries = cat(timeseries..., dims=2)
+
+lines(timeseries[2,:], timeseries[3,:])
+
+##
+X = reshape_data(ts.data)
+U, S, V = svd(X)
+
+lines(V[:,2], V[:,3], V[:,4])
+lines(V[1:500,1])
+lines(V[1:500,2])
+lines(V[1:500,1],V[1:500,2],V[1:500,3])
+
+#let's test smth out:
+begin
+    fig = Figure(resolution=(1000,1000))
+    ax = Axis(fig[1,1])
+    lines!(ax,timeseries[2,:], timeseries[3,:], label="timeseries projection",color=:red, alpha=0.3)
+    lines!(ax,V[1:500,2].*S[2].+100,V[1:500,3].*S[3], label="V*S (+offset)", color=:blue, alpha=0.4)
+    axislegend(ax)
+    display(fig)
+end
+save( "figs/projection_sanity_check.png", fig)
