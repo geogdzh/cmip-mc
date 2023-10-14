@@ -44,12 +44,3 @@ function eof_assignment(snap, U) #this isn't what we want actually
     return argmax(proj)
 end
 
-#helper
-function projection(v, U)
-    dim = size(U,2)
-    proj = zeros(dim)
-    for i in 1:dim
-        proj[i] = dot(v, U[:, i])/dot(U[:,i], U[:,i])
-    end
-    return proj
-end
