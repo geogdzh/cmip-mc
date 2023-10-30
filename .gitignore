@@ -1,0 +1,6 @@
+data/
+figs/
+.vscode/
+example_eof.jl
+slurm*
+*.sh

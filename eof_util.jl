@@ -42,6 +42,28 @@ function projection(v, U)
     return proj
 end
 
-function project_timeseries()
+function project_timeseries(data, U)
     #pass
+    flattened = reshape_data(data)
+    timelen = size(data)[3]
+    out = Array{Float64}(undef, (size(U)[2], timelen))
+    for i in 1:timelen
+        out[:,i] = projection(flattened[:,i], U) 
+    end
+    return out
+end
+
+function back_to_data(v, U, S, V)
+    # v - vector of projection
+    # U, S, V - not necessarily full size, just as many columns as v is long 
+    v = normalize(v)
+    d = size(v)[1]
+    dims = (size(U)[1], size(V)[1], 1)
+    out = Array{Float64}(undef, dims)
+    recover_mode = (U, S, V, i) ->  S[i] * reshape(U[:, i], (dims[1], 1)) * reshape(V[:, i], (1, dims[2])) 
+
+    for i in 1:d
+        out = cat(out, recover_mode(U, S, V, i).*v[i], dims=3)
+    end
+    return abs.(sum(out, dims=3))
 end
