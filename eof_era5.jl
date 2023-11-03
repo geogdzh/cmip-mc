@@ -1,4 +1,4 @@
-using NetCDF, Dates, Statistics, CairoMakie, LinearAlgebra
+using NetCDF, Dates, Statistics, CairoMakie, LinearAlgebra, JLD
 include("utils.jl")
 # include("simulator.jl")
 
@@ -28,17 +28,21 @@ end
 function get_month(date)
     return parse(Int64, Dates.format(date, "mm"))
 end
+
 function get_tvec(filename)
     return DateTime(1900,1,1)+Hour.(ncread(filename,"time"))
 end
 ##########
 
-erafile = "/net/fs06/d3/ERA5/pressure-levels/t1000-1959.nc"
-sample_snap = ncread(erafile, "t", start=[1,1,1], count=[-1, -1, 1])
-dims = size(dropdims(sample_snap, dims=3))
-goal_data_array = Array{Float64}(undef, dims)
+
+
 #cycle through each year and average over a month:
-begin
+# begin
+for tt in 1:1 #this is a cop-out of having to deal with scoping issues
+    erafile = "/net/fs06/d3/ERA5/pressure-levels/t1000-1959.nc"
+    sample_snap = ncread(erafile, "t", start=[1,1,1], count=[-1, -1, 1])
+    dims = size(dropdims(sample_snap, dims=3))
+    goal_data_array = Array{Float64}(undef, dims)
     current_date = Dates.DateTime(1959,1,1)
     working_avg = Array{Float64}(undef, dims)
     for yr in 1959:1960#2005
@@ -64,10 +68,6 @@ begin
             end
             current_date = date
         end
-
     end
+    JLD.save("data/test_era5_2.jld", "goal_data_array", goal_data_array)
 end
-
-using JLD
-
-JLD.save("data/test_era5_2.jld", "goal_data_array", goal_data_array)

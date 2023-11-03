@@ -46,10 +46,40 @@ for t in 1:60
     mean_temp = [mean(flatdata[:,i]) for i in 1:60] #could have been more than 60, doesn't have to be the same number
     global_mean_temp_reduced .+= mean_temp
 end
-global_mean_temp_reduced = global_mean_temp_reduced ./ 10
-global_mean_temp_reduced = global_mean_temp_reduced ./ 6
+global_mean_temp_reduced = global_mean_temp_reduced ./ 60
 
 lines(global_mean_temp_reduced)
+
+##
+X8 = reshape_data(newd.data)
+U8, S8, V8 = svd(X8)
+
+basisU8 = U8[:, 1:5]
+basisS8 = S8[1:5]
+basisV8 = V8[:, 1:5]
+
+projts8 = project_timeseries(newd.data, basisU8)
+
+# alt reduction
+
+global_mean_temp_reduced_8 = zeros((60))
+for t in 1:60
+    flatdata = back_to_data(projts8[:,t], basisU8, basisS8, basisV8)
+    mean_temp = [mean(flatdata[:,i]) for i in 1:60] #could have been more than 60, doesn't have to be the same number
+    global_mean_temp_reduced_8 .+= mean_temp
+end
+global_mean_temp_reduced_8 = global_mean_temp_reduced_8 ./ 60
+
+lines(global_mean_temp_reduced_8)
+
+begin
+    fig = Figure(resolution=(800,500))
+    ax = Axis(fig[1,1])
+    lines!(projts[2,1:500], projts[3,1:500])
+    lines!(projts8[2,1:500], projts8[3,1:500])
+    display(fig)
+end
+
 
 #comparison:
 global_mean_temp = Vector{Float32}()
@@ -59,10 +89,12 @@ for t in 1:60
 end
 
 begin
-    fig = Figure(resolution=(1600,1000))
+    fig = Figure(resolution=(800,500))
     ax = Axis(fig[1,1])
-    lines!(global_mean_temp_reduced, label="reduced")  #newd.timevec[1:60] ##timevec handling is wrong!!
+    lines!(global_mean_temp_reduced, label="reduced with histroical basis")  #newd.timevec[1:60] ##timevec handling is wrong!!
     lines!( global_mean_temp, label="observed")
+    lines!(global_mean_temp_reduced_8, label="reduced with 8.5 basis")
     axislegend()
+    save("figs/reduced_vs_observed.png", fig)
     display(fig)
 end
