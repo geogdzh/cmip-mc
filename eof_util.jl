@@ -34,6 +34,7 @@ end
 # end
 
 function projection(v, U)
+    #for an orthogonal basis
     dim = size(U,2)
     proj = zeros(dim)
     for i in 1:dim
@@ -43,7 +44,6 @@ function projection(v, U)
 end
 
 function project_timeseries(data, U)
-    #pass
     flattened = reshape_data(data)
     timelen = size(data)[3]
     out = Array{Float64}(undef, (size(U)[2], timelen))
@@ -60,10 +60,11 @@ function back_to_data(v, U, S, V)
     d = size(v)[1]
     dims = (size(U)[1], size(V)[1], 1)
     out = Array{Float64}(undef, dims)
-    recover_mode = (U, S, V, i) ->  S[i] * reshape(U[:, i], (dims[1], 1)) * reshape(V[:, i], (1, dims[2])) 
+    # recover_mode = (U, S, V, i) ->  S[i] * reshape(U[:, i], (dims[1], 1)) * reshape(V[:, i], (1, dims[2])) 
 
     for i in 1:d
-        out = cat(out, recover_mode(U, S, V, i).*v[i], dims=3)
+        # out = cat(out, recover_mode(U, S, V, i).*v[i], dims=3)
+        out = cat(out, U[:, i].*v[i], dims=3)
     end
     return abs.(sum(out, dims=3))
 end

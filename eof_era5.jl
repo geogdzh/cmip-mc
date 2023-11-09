@@ -56,7 +56,7 @@ for tt in 1:1 #this is a cop-out of having to deal with scoping issues
             snap = dropdims(ncread(file, "t", start=[1,1,ind], count=[-1, -1, 1]), dims=3)
             snap = normalize_era5(snap, scale_factor, add_offset)
             if month == get_month(current_date)
-                working_avg = cat(working_avg, snap, dims=3)
+                working_avg = cat(working_avg, snap, dims=3) #inefficient because of the concatenation!!
             else
                 println("starting month "*string(month))
                 # run the averaging
