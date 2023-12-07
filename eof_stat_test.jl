@@ -35,20 +35,47 @@ projts = project_timeseries(newd.data, basisU)
 # visualize it:
 lines(projts[2,1:500], projts[3,1:500]) #looks good but sufficiently different
 
+
+#
+i = 1
+tmp = copy(S[i] * V[:, i] * mean(U[:, i]))
+for i in 2:5
+    tmp .+= S[i] * V[:, i] * mean(U[:, i])
+end
+
+# meantemp = mean(temperature, dims = (1,2))[:]
+
+fig = Figure() 
+ax = Axis(fig[1,1])
+lines!(ax, tmp, color = (:red, 0.5))
+# lines!(ax, meantemp[end-11:end], color = (:blue, 0.6))
+display(fig)
+
+
+shape_data(projts[2,1].*basisU[:,2], M, N)
+
+tmp = shape_data(sum([projts[i,1].*basisU[:,i] for i in 1:5]), M, N)
+heatmap(tmp)
+
+tmp2 = shape_data(basisU*projts[:,1], M, N)
+
+reconstructed_X = basisU*projts
+global_mean_temp_reduced = mean(reconstructed_X, dims=1)[:]
+
 ###
 # reconstruct "alternate universes" from each projected point
 dims = (M*N, L, newL)
 #reconstructed_proj = Array{Float64}(undef, dims)       #this gives an ot of memory error
 #so instead go one by one
-global_mean_temp_reduced = zeros((60))
-for t in 1:60
-    flatdata = back_to_data(projts[:,t], basisU, basisS, basisV)
-    mean_temp = [mean(flatdata[:,i]) for i in 1:60] #could have been more than 60, doesn't have to be the same number
-    global_mean_temp_reduced .+= mean_temp
-end
-global_mean_temp_reduced = global_mean_temp_reduced ./ 60
+# global_mean_temp_reduced = zeros((60))
+# for t in 1:60
+#     flatdata = back_to_data(projts[:,t], basisU, basisS, basisV)
+#     mean_temp = [mean(flatdata[:,i]) for i in 1:60] #could have been more than 60, doesn't have to be the same number
+#     global_mean_temp_reduced .+= mean_temp
+# end
+# global_mean_temp_reduced = global_mean_temp_reduced ./ 60
 
-lines(global_mean_temp_reduced)
+# lines(global_mean_temp_reduced)
 
 ##
 X8 = reshape_data(newd.data)
@@ -88,13 +115,14 @@ for t in 1:60
    push!(global_mean_temp, mean_temp)
 end
 
+
 begin
     fig = Figure(resolution=(800,500))
     ax = Axis(fig[1,1])
-    lines!(global_mean_temp_reduced, label="reduced with histroical basis")  #newd.timevec[1:60] ##timevec handling is wrong!!
+    scatter!(global_mean_temp_reduced[1:60], label="reduced with histroical basis")  #newd.timevec[1:60] ##timevec handling is wrong!!
     lines!( global_mean_temp, label="observed")
-    lines!(global_mean_temp_reduced_8, label="reduced with 8.5 basis")
+    # lines!(global_mean_temp_reduced_8, label="reduced with 8.5 basis")
     axislegend()
-    save("figs/reduced_vs_observed.png", fig)
+    # save("figs/reduced_vs_observed.png", fig)
     display(fig)
 end

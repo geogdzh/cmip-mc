@@ -52,7 +52,7 @@ begin
         scatter!(ax, centers[2,:], centers[3,:], color=pal[j], markersize=20)
     end
     display(fig)
-    save("figs/month_clusters_2_3.png", fig)
+    # save("figs/month_clusters_2_3.png", fig)
 end
 
 begin
@@ -66,7 +66,7 @@ begin
     end
     # axislegend(ax)
     display(fig)
-    save("figs/month_clusters_3_4.png", fig)
+    # save("figs/month_clusters_3_4.png", fig)
 end
 
 begin
@@ -79,7 +79,7 @@ begin
         scatter!(ax, centers[1,:], centers[2,:], color=pal[j], markersize=20)
     end
     display(fig)
-    save("figs/month_clusters_1_2.png", fig)
+    # save("figs/month_clusters_1_2.png", fig)
 end
 
 #### Step 2: define partition function
@@ -114,7 +114,9 @@ heatmap(pf)
 
 #try cutting pieces out of the pf:
 
-monthly_pfs = []
-# for j in 1:12
-#     pf[]
-# end
+monthly_pfs = Dict()
+for j in 1:12
+    monthly_pfs[j] = pf[5*(j-1)+1:5*j, 5*(j-1)+1:5*j]
+end
+
+
