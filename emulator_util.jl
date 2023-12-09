@@ -1,3 +1,12 @@
+### data functions
+
+function get_gmt_list(ts::ncData)
+    hist_mean_temp = weighted_avg(ts)
+    hist_year_temp =  [mean(hist_mean_temp[i:min(i+12-1, end)]) for i in 1:12:length(hist_mean_temp)]
+    return hist_year_temp
+end
+
+
 ### training functions
 # gmt = 290.
 # vars1 = var_coefs[1, :, 2].*gmt .+ var_coefs[1, :, 1]

@@ -13,9 +13,15 @@ function reshape_data(data)
     return reshape(data, (M * N, L))
 end
 
-function shape_data(data, M, N)
-    return reshape(data, (M, N))
+function shape_data(data, M, N, full_array=false)
+    if !full_array
+        return reshape(data, (M, N))
+    else
+        L = size(data)[2]
+        return reshape(data, (M,N, L))
+    end
 end
+
 
 function get_eof(d::ncData, full=false)
     X = reshape_data(d.data)
@@ -34,9 +40,9 @@ function projection(v, U)
     return proj
 end
 
-function project_timeseries(data, U)
-    flattened = reshape_data(data)
-    timelen = size(data)[3]
+function project_timeseries(data, U; reshaped=false)
+    flattened = !reshaped ? reshape_data(data) : data
+    timelen = size(data)[end] #!reshaped ? size(data)[3] : size(data)[2] 
     out = Array{Float64}(undef, (size(U)[2], timelen))
     for i in 1:timelen
         out[:,i] = projection(flattened[:,i], U) 
