@@ -1,3 +1,5 @@
+# looking at variation within ensemble
+
 using NetCDF, Dates, Statistics, CairoMakie, LinearAlgebra
 include("utils.jl")
 include("simulator.jl")

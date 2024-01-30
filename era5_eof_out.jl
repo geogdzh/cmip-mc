@@ -1,7 +1,8 @@
+# processing output of averaged ERA5 (not regridded though)
+
 using NetCDF, Dates, Statistics, CairoMakie, LinearAlgebra, HDF5
 include("utils.jl")
 include("eof_util.jl")
-
 
 era5 = h5open("/net/fs06/d3/ERA5/monthly_averaged_t2m/era5_monthly_avg_1960_2005.h5", "r")
 era5_temp = read(era5, "monthly_averaged_temperature")

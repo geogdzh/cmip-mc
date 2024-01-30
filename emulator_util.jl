@@ -1,18 +1,59 @@
 ### data functions
 
 function get_gmt_list(ts::ncData)
+    # applies weighting and returns monthly average over entire geographic field
     hist_mean_temp = weighted_avg(ts)
     hist_year_temp =  [mean(hist_mean_temp[i:min(i+12-1, end)]) for i in 1:12:length(hist_mean_temp)]
     return hist_year_temp
 end
 
+function month_to_year_avg(list)
+    return [mean(list[i:min(i+12-1, end)]) for i in 1:12:length(list)]
+end
+
 
 ### training functions
-# gmt = 290.
-# vars1 = var_coefs[1, :, 2].*gmt .+ var_coefs[1, :, 1]
-# vars2 = var_coefs[1+1, :, 2].*gmt .+ var_coefs[1+1, :, 1]
-# vars = vcat(vars1, vars2)
-# diagm(sqrt.(vars))*corrs[:,:,1]*diagm(sqrt.(vars))
+function get_corrs(projts)
+    d = size(projts)[1]
+    corrs = zeros((2*d, 2*d, 12))
+    for i in 1:12 #i is prev month
+        proj1 = projts[:,i:12:end]
+        proj2 = projts[:,i+1:12:end]
+        proj12 = [vcat(proj1[:,j], proj2[:,j]) for j in 1:size(proj2)[2]]
+        proj12 = hcat(proj12...)
+        corrs[:,:,i] = cor(proj12; dims=2)
+    end
+    return corrs
+end
+
+function get_mean_coefs(projts, hist_year_temp)
+    d = size(projts)[1]
+    mean_coefs = zeros((12, d, 2))
+    for i in 1:12
+        y = projts[:,i:12:end] 
+        for j in 1:d
+            mean_coefs[i, j, :]  = coef(lm(@formula(y ~ x), DataFrame(x=hist_year_temp, y=y[j,:])))
+        end
+    end
+    return mean_coefs
+end
+
+function get_var_coefs(projts, hist_year_temp)
+    d = size(projts)[1]
+    var_coefs = zeros((12, d, 2))
+    for i in 1:12
+        y = projts[:,i:12:end] 
+        for j in 1:d
+            b, m = mean_coefs[i, j, :]
+            fits = [m*x+b for x in hist_year_temp]
+            vars = (y[j,:].-fits).^2
+            var_coefs[i, j, :]  = coef(lm(@formula(y ~ x), DataFrame(x=hist_year_temp, y=vars)))
+        end
+    end
+    return var_coefs
+end
+
+## training funcs pt 2
 
 function get_cov(gmt, corrs, var_coefs) #need all the corrs together
     # size(corrs) = (2d, 2d, 12)

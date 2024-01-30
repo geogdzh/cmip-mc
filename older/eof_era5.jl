@@ -1,3 +1,6 @@
+# pretty sure this file is outdated
+
+
 using NetCDF, Dates, Statistics, CairoMakie, LinearAlgebra, JLD
 include("utils.jl")
 # include("simulator.jl")
@@ -35,6 +38,7 @@ end
 ##########
 
 
+#this DIDNT WORK
 
 #cycle through each year and average over a month:
 # begin

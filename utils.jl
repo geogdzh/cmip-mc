@@ -1,8 +1,8 @@
-function get_tvec(filename)
-    #returns vector marking the first day of each month 
-    # return DateTime(1850,1,1)+Day.(ncread(filename,"time"))
-   [ DateTime(1850,1,1)+Month(x) for x in range(0,length(ncread(filename, "time"))-1)]
-end
+# function get_tvec(filename)
+#     #returns vector marking the first day of each month 
+#     # return DateTime(1850,1,1)+Day.(ncread(filename,"time"))
+#    [ DateTime(1850,1,1)+Month(x) for x in range(0,length(ncread(filename, "time"))-1)]
+# end
 
 function find_closest(vec, value)
     #finds index of closest value in vector
