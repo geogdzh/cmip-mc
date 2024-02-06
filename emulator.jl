@@ -1,9 +1,9 @@
-using NetCDF, Dates, Statistics, CairoMakie, LinearAlgebra, ProgressBars, GLM, Distributions, DataFrames, HDF5
+using NetCDF, Dates, Statistics, CairoMakie, LinearAlgebra, ProgressBars, GLM, Distributions, HDF5
 include("utils.jl")
 include("eof_util.jl")
 include("emulator_util.jl")
 
-#### get basis - skip if loading it (?)
+#### get basis - skip if loading it 
 
 #first ensemble member of historical run
 file_head = "/net/fs06/d3/CMIP5/MPI-GE/historical/ts/"
@@ -44,11 +44,12 @@ basis = U[:,1:d]
 # close(hfile)
 
 ############## load a basis
-hfile = h5open("data/temp-precip_basis.hdf5", "r")
+# hfile = h5open("data/temp-precip_basis.hdf5", "r")
+hfile = h5open("data/temp_basis.hdf5", "r")
 basis = read(hfile, "basis")
 close(hfile)
 
-################################### get training data for the linear fits
+################################### get training data for the linear fits (skip if loading it)
 num_ens_members = 3
 projts = zeros((d, (L1+L2)*num_ens_members))
 hist_mean_temp = zeros((1, (L1+L2)*num_ens_members))
@@ -95,23 +96,68 @@ hist_mean_temp = read(hfile, "hist_mean_temp")
 num_ens_members = read(hfile, "num_ens_members")
 close(hfile)
 
-# hist_year_temp = [mean(hist_mean_temp[i:min(i+12-1, end)]) for i in 1:12:length(hist_mean_temp)]
+d = size(projts)[1]
+ens_projts = zeros((d, Int(size(projts)[2]/num_ens_members), num_ens_members))
+for i in 1:num_ens_members
+    ens_projts[:,:,i] = projts[:,(i-1)*Int(size(projts)[2]/num_ens_members)+1:i*Int(size(projts)[2]/num_ens_members)]
+end
+
 hist_year_temp = month_to_year_avg(hist_mean_temp)
-
-
-corrs = get_corrs(projts)
+ens_gmt = zeros((num_ens_members, Int(length(hist_year_temp)/num_ens_members)))
+for i in 1:num_ens_members
+    ens_gmt[i,:] = hist_year_temp[(i-1)*Int(length(hist_year_temp)/num_ens_members)+1:i*Int(length(hist_year_temp)/num_ens_members)]
+end
+ens_gmt = mean(ens_gmt, dims=1)
+#now we're workign with ens_projts and ens_gmt
 
 ###
 
-#get mean coefs! #GENERALIZE
-mean_coefs = get_mean_coefs(projts, hist_year_temp)
+corrs = get_corrs(ens_projts) #updated
+mean_coefs = get_mean_coefs(ens_projts, ens_gmt) #updated
+var_coefs = get_var_coefs(ens_projts, ens_gmt, mean_coefs) #updated
 
-#get var coefs! #GENERALIZE
-var_coefs = get_var_coefs(projts, hist_year_temp)
+
+####test
+begin
+    fig = Figure(resolution=(1000, 800))
+    ax = Axis(fig[1,1])
+    month = 1
+    mode = 100
+    for i in 1:num_ens_members
+        scatter!(ax, ens_gmt[:], ens_projts[mode, month:12:end, i]) #january
+    end 
+    lines!(ax, ens_gmt[:], [mean_coefs[month, mode, 2].*x.+mean_coefs[month, mode, 1] for x in ens_gmt[:]], color=:black, linewidth=5)
+    display(fig)
+end 
+
+###dev
+
+
+##### dev
+d = size(projts)[1]
+var_coefs = zeros((12, d, 2))
+i=1
+# for i in 1:12
+y1 = projts[:,i:12:end] 
+y2 = projts[:,i+1:12:end]
+b1, m1 = [mean_coefs[i, :, :][:, j] for j in 1:2]
+b2, m2 = [mean_coefs[i+1, :, :][:, j] for j in 1:2]
+fits1 = [m1.*x.+b1 for x in hist_year_temp]
+fits2 = [m2.*x.+b2 for x in hist_year_temp]
+fits1 = hcat(fits1...)
+fits2 = hcat(fits2...) 
+(y1.-fits1)*(y2.-fits2)
+    # for j in 1:d
+    #     b, m = mean_coefs[i, j, :]
+    #     fits = [m*x+b for x in hist_year_temp]
+    #     vars = (y[j,:].-fits).^2
+    #     var_coefs[i, j, :]  = coef(lm(@formula(y ~ x), DataFrame(x=hist_year_temp, y=vars)))
+    # end
+# end
 
 
 ######################
-
+#testing
 # covs = get_cov(289, corrs, var_coefs)
 # means = get_means(289, mean_coefs)
 
@@ -132,22 +178,25 @@ var_coefs = get_var_coefs(projts, hist_year_temp)
 ### ok let's test it out for real
 
 #get a sample gmt list
-file = "/net/fs06/d3/CMIP5/MPI-GE/RCP26/ts/ts_Amon_MPI-ESM_rcp26_r$(string(50, pad=3))i2005p3_200601-209912.nc"
+# file = "/net/fs06/d3/CMIP5/MPI-GE/RCP26/ts/ts_Amon_MPI-ESM_rcp26_r$(string(50, pad=3))i2005p3_200601-209912.nc"
+file = "data/ts_Amon_MPI-ESM_rcp26_r$(string(50, pad=3))i2005p3_200601-209912.nc"
 ts3 = ncData(file, "ts") # actual data for comparison
 gmt_list = get_gmt_list(ts3)
+M, N, L1 = size(ts3.data)
 
 sim = emulate(gmt_list, mean_coefs, corrs, var_coefs)
 newdata = back_to_data(sim, basis)
-# simts = ncData(shape_data(newdata, M, N, true), ts3.lonvec, ts3.latvec, ts3.timevec)
-# sim_gmt = get_gmt_list(simts)
+simts = ncData(shape_data(newdata, M, N, true), ts3.lonvec, ts3.latvec, ts3.timevec)
+sim_gmt = get_gmt_list(simts)
 
 #split the data
-newts = newdata[1:M*N,:]
-newtp = newdata[M*N+1:end, :]
+# newts = newdata[1:M*N,:]
+# newtp = newdata[M*N+1:end, :]
 
 #compare gmt representation w 20 ensemble members
-gmts = zeros((20, length(sim_gmt)))
-for i in ProgressBar(1:20)
+ens_mem = 10
+gmts = zeros((ens_mem, length(sim_gmt)))
+for i in ProgressBar(1:ens_mem)
     s = emulate(gmt_list, mean_coefs, corrs, var_coefs)
     data = back_to_data(s, basis)[1:M*N, :]
     sts = ncData(shape_data(data, M, N, true), ts3.lonvec, ts3.latvec, ts3.timevec)
@@ -159,7 +208,7 @@ begin
     fig = Figure(resolution=(1000,800))
     ax = Axis(fig[1,1])
     # lines!(ax,  sim_gmt, label="emulator")
-    for i in 1:20
+    for i in 1:ens_mem
         lines!(ax, gmts[i, :], color=:orange, alpha=0.3)
     end
     lines!(ax, avg, label="emulator ensemble avg", color=:red)

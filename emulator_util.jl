@@ -14,11 +14,15 @@ end
 
 ### training functions
 function get_corrs(projts)
-    d = size(projts)[1]
+    d, ts, num_ens_members = size(projts)
     corrs = zeros((2*d, 2*d, 12))
     for i in 1:12 #i is prev month
-        proj1 = projts[:,i:12:end]
-        proj2 = projts[:,i+1:12:end]
+        proj1 = projts[:,i:12:end,1] #this is all the jans, eg
+        proj2 = i==12 ? projts[:,1:12:end,1] : projts[:,i+1:12:end,1] #febs
+        for j in 2:num_ens_members
+            proj1 = hcat(proj1, projts[:,i:12:end,j])
+            proj2 = i==12 ? hcat(proj2, projts[:,1:12:end,j]) : hcat(proj2, projts[:,i+1:12:end,j])
+        end
         proj12 = [vcat(proj1[:,j], proj2[:,j]) for j in 1:size(proj2)[2]]
         proj12 = hcat(proj12...)
         corrs[:,:,i] = cor(proj12; dims=2)
@@ -26,34 +30,48 @@ function get_corrs(projts)
     return corrs
 end
 
-function get_mean_coefs(projts, hist_year_temp)
-    d = size(projts)[1]
+function get_mean_coefs(ens_projts, ens_gmt)
+    d, ts, num_ens_members = size(ens_projts)
     mean_coefs = zeros((12, d, 2))
     for i in 1:12
-        y = projts[:,i:12:end] 
-        for j in 1:d
-            mean_coefs[i, j, :]  = coef(lm(@formula(y ~ x), DataFrame(x=hist_year_temp, y=y[j,:])))
+        y = ens_projts[:,i:12:end,1] 
+        for j in 2:num_ens_members
+            y = hcat(y, ens_projts[:,i:12:end,j])
+        end
+        for j in 1:d   
+            A1 = fill(1., length(ens_gmt)*num_ens_members)
+            A2 = repeat(ens_gmt', num_ens_members)
+            A = hcat(A1, A2)
+            b = y[j,:]
+            mean_coefs[i, j, :] = A \ b
         end
     end
     return mean_coefs
 end
 
-function get_var_coefs(projts, hist_year_temp)
-    d = size(projts)[1]
+function get_var_coefs(ens_projts, ens_gmt, mean_coefs)
+    d, ts, num_ens_members = size(ens_projts)
     var_coefs = zeros((12, d, 2))
     for i in 1:12
-        y = projts[:,i:12:end] 
+        y = ens_projts[:,i:12:end,1] 
+        for j in 2:num_ens_members
+            y = hcat(y, ens_projts[:,i:12:end,j])
+        end
         for j in 1:d
             b, m = mean_coefs[i, j, :]
-            fits = [m*x+b for x in hist_year_temp]
+            fits = repeat([m*x+b for x in ens_gmt]',num_ens_members)
             vars = (y[j,:].-fits).^2
-            var_coefs[i, j, :]  = coef(lm(@formula(y ~ x), DataFrame(x=hist_year_temp, y=vars)))
+            A1 = fill(1., length(ens_gmt)*num_ens_members)
+            A2 = repeat(ens_gmt', num_ens_members)
+            A = hcat(A1, A2)
+            var_coefs[i, j, :] = A \ vars
         end
     end
     return var_coefs
 end
 
-## training funcs pt 2
+
+### testing functions
 
 function get_cov(gmt, corrs, var_coefs) #need all the corrs together
     # size(corrs) = (2d, 2d, 12)
@@ -80,7 +98,6 @@ function get_means(gmt, mean_coefs)
     return out
 end
 
-### testing functions
 
 function emulate(gmt_list, mean_coefs, corrs, var_coefs)
     num_years = length(gmt_list)
