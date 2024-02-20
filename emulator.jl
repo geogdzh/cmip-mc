@@ -112,48 +112,141 @@ ens_gmt = mean(ens_gmt, dims=1)
 
 ###
 
-corrs = get_corrs(ens_projts) #updated
+#OLD VERSION
+# corrs = get_corrs(ens_projts) #updated
+# mean_coefs = get_mean_coefs(ens_projts, ens_gmt) #updated
+var_coefs, vars = get_var_coefs(ens_projts, ens_gmt, mean_coefs; return_vars=true) #updated
+
+#NEW
 mean_coefs = get_mean_coefs(ens_projts, ens_gmt) #updated
-var_coefs = get_var_coefs(ens_projts, ens_gmt, mean_coefs) #updated
+covs = gmt_cov(ens_projts, ens_gmt)
+# chol_coefs = get_chol_coefs(covs, ens_gmt)
+corrs = gmt_cov(ens_projts, ens_gmt; corrs=true)
+chol_coefs, chols = get_chol_coefs(covs, ens_gmt; return_chols=true)
 
 
 ####test
+num_buckets = 10
+bit = Int(size(ens_projts)[2]/num_buckets)
+bitcorrs = zeros((2*d, 2*d, 12, num_buckets))
+for i in 1:num_buckets
+    bitcorrs[:,:,:,i] = get_corrs(ens_projts[:,(i-1)*bit+1:i*bit,:])
+end
 begin
-    fig = Figure(resolution=(1000, 800))
-    ax = Axis(fig[1,1])
+    fig = Figure(resolution=(2000, 2000))
     month = 1
-    mode = 100
-    for i in 1:num_ens_members
-        scatter!(ax, ens_gmt[:], ens_projts[mode, month:12:end, i]) #january
-    end 
-    lines!(ax, ens_gmt[:], [mean_coefs[month, mode, 2].*x.+mean_coefs[month, mode, 1] for x in ens_gmt[:]], color=:black, linewidth=5)
+    ax = Axis(fig[1,1])
+    heatmap!(ax, bitcorrs[d+1:end,1:d,month,5].-bitcorrs[d+1:end,1:d,month,1], colorrange=(-1,1),colormap=:balance)
+    display(fig)
+end
+begin
+    fig = Figure(resolution=(2000, 2000))
+    # month = 1
+    for i in 1:5
+        for j in 1:5
+            ax = Axis(fig[i,j], title = "mode $i vs mode $j of successive month")
+            for month in 1:12
+                lines!(ax, [x for x in 1:num_buckets], [bitcorrs[d+i,j,month,x] for x in 1:num_buckets])
+            end
+        end
+    end
+    save("figs/corrs_over_time_10_buckets.png", fig)
+    display(fig)
+end
+
+
+#mean fits
+begin
+    fig = Figure(resolution=(2000, 1000))
+    # ax = Axis(fig[1,1])
+    month = 1
+    # mode = 100
+    for mode in 1:10
+        # ax = Axis(fig[mode,1])
+        row_index = (mode - 1) ÷ 5 + 1
+        col_index = (mode - 1) % 5 + 1
+        ax = Axis(fig[row_index, col_index], title="Mode $mode")
+        for i in 1:num_ens_members
+            scatter!(ax, ens_gmt[:], ens_projts[mode, month:12:end, i], markersize=7, alpha=0.5) 
+        end
+        ens_mean = mean(ens_projts[mode, month:12:end, :], dims=2)
+        scatter!(ax, ens_gmt[:], ens_mean[:], color=:black, markersize=7)
+        lines!(ax, ens_gmt[:], [mean_coefs[month, mode, 2].*x.+mean_coefs[month, mode, 1] for x in ens_gmt[:]], color=:black, linewidth=4)
+    end
+    save("figs/jan_mean_fits_10_modes.png", fig)
     display(fig)
 end 
 
-###dev
+#var fits
+begin
+    fig = Figure(resolution=(2000, 1000))
+    # ax = Axis(fig[1,1])
+    month = 1
+    # mode = 100
+    for mode in 1:10
+        # ax = Axis(fig[mode,1])
+        row_index = (mode - 1) ÷ 5 + 1
+        col_index = (mode - 1) % 5 + 1
+        ax = Axis(fig[row_index, col_index], title="std for mode $mode")
+        for i in 1:num_ens_members
+            scatter!(ax, ens_gmt[:], sqrt.(vars[month,mode,i,:]), markersize=7, alpha=0.5) 
+        end
+        ens_mean = sqrt.(mean(dropdims(vars[month:12:end, mode, :, :], dims=1), dims=1))
+        scatter!(ax, ens_gmt[:], ens_mean[:], color=:black, markersize=7)
+        lines!(ax, ens_gmt[:], sqrt.([var_coefs[month, mode, 2].*x.+var_coefs[month, mode, 1] for x in ens_gmt[:]]), color=:black, linewidth=4)
+    end
+    save("figs/jan_var_fits_10_modes.png", fig)
+    display(fig)
+end 
 
+#cov fits
+begin
+    fig = Figure(resolution=(1400, 1400))
+    mon = 1
+    for i in 1:5
+        for j in 1:5
+            ax = Axis(fig[i,j])
+            x = hcat(fill(1., length(ens_gmt)), ens_gmt[:])
+            y = corrs[d+i,j,mon,:]
+            scatter!(ax, ens_gmt[:], y, color=:orange, alpha=0.5) 
+            fits = x \ y
+            # print(typeof(fit))
+            lines!(ax, ens_gmt[:], fits[2].*ens_gmt[:] .+ fits[1], color=:black, linewidth=3)
+            # lines!(ax, ens_gmt[:], [chol_coefs[month, i, j, 2].*x.+chol_coefs[month, i, j, 1] for x in ens_gmt[:]], color=:black, linewidth=3)
+        end
+    end
+    save("figs/jan_corr_fits.png", fig)
+    display(fig)
+end
 
-##### dev
-d = size(projts)[1]
-var_coefs = zeros((12, d, 2))
-i=1
-# for i in 1:12
-y1 = projts[:,i:12:end] 
-y2 = projts[:,i+1:12:end]
-b1, m1 = [mean_coefs[i, :, :][:, j] for j in 1:2]
-b2, m2 = [mean_coefs[i+1, :, :][:, j] for j in 1:2]
-fits1 = [m1.*x.+b1 for x in hist_year_temp]
-fits2 = [m2.*x.+b2 for x in hist_year_temp]
-fits1 = hcat(fits1...)
-fits2 = hcat(fits2...) 
-(y1.-fits1)*(y2.-fits2)
-    # for j in 1:d
-    #     b, m = mean_coefs[i, j, :]
-    #     fits = [m*x+b for x in hist_year_temp]
-    #     vars = (y[j,:].-fits).^2
-    #     var_coefs[i, j, :]  = coef(lm(@formula(y ~ x), DataFrame(x=hist_year_temp, y=vars)))
-    # end
-# end
+#chol fits
+begin
+    fig = Figure(resolution=(1000, 1000))
+    month = 1
+    for i in 1:10
+        for j in 1:10
+            ax = Axis(fig[i,j])
+            scatter!(ax, ens_gmt[:], chols[i,j,month,:], color=:orange, alpha=0.5) 
+            lines!(ax, ens_gmt[:], [chol_coefs[month, i, j, 2].*x.+chol_coefs[month, i, j, 1] for x in ens_gmt[:]], color=:black, linewidth=3)
+        end
+    end
+    display(fig)
+end
+
+# dev
+
+Σ = copy(covs[:,:,5,1] )
+Σ += I .* sqrt(eps(maximum(Σ)))
+Σ_11, Σ_12, Σ_21, Σ_22 = Σ[1:d,1:d], Σ[1:d,d+1:end], Σ[d+1:end,1:d], Σ[d+1:end,d+1:end] 
+# cholesky(Σ_11 + sqrt(eps(maximum(Σ_11))) .* I)
+# cholesky(Σ_22 + sqrt(eps(maximum(Σ_22))) .* I)
+# cholesky(Σ_12 + sqrt(eps(maximum(Σ_12))) .* I ) #not working
+# cholesky(Σ_21)
+# μ_out = μ_2 .+ Σ_21 * inv(Σ_11) * (prev_val .- μ_1)
+# Σ_out = Symmetric(Σ_22) - Symmetric(Σ_21 * (Σ_11 \ Σ_12)) # or inv(a)*b = a \ b
+Σ_out = Σ_22 - Σ_21 * (Σ_11 \ Σ_12) # or inv(a)*b = a \ b
+Σ_out = Σ_out + sqrt(eps(maximum(Σ_out))) .* I
+cholesky(Σ_out)
 
 
 ######################
@@ -179,12 +272,26 @@ fits2 = hcat(fits2...)
 
 #get a sample gmt list
 # file = "/net/fs06/d3/CMIP5/MPI-GE/RCP26/ts/ts_Amon_MPI-ESM_rcp26_r$(string(50, pad=3))i2005p3_200601-209912.nc"
-file = "data/ts_Amon_MPI-ESM_rcp26_r$(string(50, pad=3))i2005p3_200601-209912.nc"
+file = "data/ts_Amon_MPI-ESM_rcp26_r$(string(1, pad=3))i2005p3_200601-209912.nc" # 50 for what i was doing before
 ts3 = ncData(file, "ts") # actual data for comparison
 gmt_list = get_gmt_list(ts3)
 M, N, L1 = size(ts3.data)
 
-sim = emulate(gmt_list, mean_coefs, corrs, var_coefs)
+### test
+
+for gmt in gmt_list
+    covv = get_cov(gmt, chol_coefs)
+    for i in 1:12
+        try
+            cholesky(covv[:,:,i])
+        catch
+            println("failed at gmt: $gmt, month: $i")
+        end
+    end
+end
+# no failures!
+
+sim = emulate(gmt_list, mean_coefs, chol_coefs)
 newdata = back_to_data(sim, basis)
 simts = ncData(shape_data(newdata, M, N, true), ts3.lonvec, ts3.latvec, ts3.timevec)
 sim_gmt = get_gmt_list(simts)
@@ -197,7 +304,7 @@ sim_gmt = get_gmt_list(simts)
 ens_mem = 10
 gmts = zeros((ens_mem, length(sim_gmt)))
 for i in ProgressBar(1:ens_mem)
-    s = emulate(gmt_list, mean_coefs, corrs, var_coefs)
+    s = emulate(gmt_list, mean_coefs, chol_coefs)
     data = back_to_data(s, basis)[1:M*N, :]
     sts = ncData(shape_data(data, M, N, true), ts3.lonvec, ts3.latvec, ts3.timevec)
     gmts[i,:] = get_gmt_list(sts)

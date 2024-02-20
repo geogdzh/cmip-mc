@@ -13,23 +13,6 @@ end
 
 
 ### training functions
-function get_corrs(projts)
-    d, ts, num_ens_members = size(projts)
-    corrs = zeros((2*d, 2*d, 12))
-    for i in 1:12 #i is prev month
-        proj1 = projts[:,i:12:end,1] #this is all the jans, eg
-        proj2 = i==12 ? projts[:,1:12:end,1] : projts[:,i+1:12:end,1] #febs
-        for j in 2:num_ens_members
-            proj1 = hcat(proj1, projts[:,i:12:end,j])
-            proj2 = i==12 ? hcat(proj2, projts[:,1:12:end,j]) : hcat(proj2, projts[:,i+1:12:end,j])
-        end
-        proj12 = [vcat(proj1[:,j], proj2[:,j]) for j in 1:size(proj2)[2]]
-        proj12 = hcat(proj12...)
-        corrs[:,:,i] = cor(proj12; dims=2)
-    end
-    return corrs
-end
-
 function get_mean_coefs(ens_projts, ens_gmt)
     d, ts, num_ens_members = size(ens_projts)
     mean_coefs = zeros((12, d, 2))
@@ -49,43 +32,65 @@ function get_mean_coefs(ens_projts, ens_gmt)
     return mean_coefs
 end
 
-function get_var_coefs(ens_projts, ens_gmt, mean_coefs)
-    d, ts, num_ens_members = size(ens_projts)
-    var_coefs = zeros((12, d, 2))
+function gmt_cov(ens_projts, ens_gmt; detrend=false,  mean_coefs=nothing, corrs=false)
+    num_years = length(ens_gmt)
+    covs = zeros((2*d, 2*d, 12, num_years))
     for i in 1:12
-        y = ens_projts[:,i:12:end,1] 
-        for j in 2:num_ens_members
-            y = hcat(y, ens_projts[:,i:12:end,j])
+        proj1 = ens_projts[:,i:12:end,:] #this is all the jans, eg
+        proj2 = i==12 ? ens_projts[:,1:12:end,:] : ens_projts[:,i+1:12:end,:] #febs
+        if detrend
+            proj1 = proj1 .- (mean_coefs[i, :, 2].*ens_gmt .- mean_coefs[i, :, 1])
+            proj2 = i==12 ? proj2 .- (mean_coefs[1, :, 2].*ens_gmt .- mean_coefs[1, :, 1]) : proj2 .- (mean_coefs[i+1, :, 2].*ens_gmt .- mean_coefs[i+1, :, 1])
         end
-        for j in 1:d
-            b, m = mean_coefs[i, j, :]
-            fits = repeat([m*x+b for x in ens_gmt]',num_ens_members)
-            vars = (y[j,:].-fits).^2
-            A1 = fill(1., length(ens_gmt)*num_ens_members)
-            A2 = repeat(ens_gmt', num_ens_members)
-            A = hcat(A1, A2)
-            var_coefs[i, j, :] = A \ vars
+        cat = vcat(proj1, proj2)
+        for j in 1:num_years
+            covs[:,:,i,j] = corrs==true ? cor(cat[:,j,:]; dims=2) : cov(cat[:,j,:]; dims=2)
+        end    
+    end
+    return covs
+end
+
+function get_chol_coefs(covs, ens_gmt; return_chols=false)
+    D, D, num_months, num_years = size(covs)
+    # d = Int(d/2) 
+    chols = zeros((D, D, num_months, num_years))
+    for i in 1:12
+        for j in 1:num_years
+            # print(i, " ", j, "\n")
+            sc = covs[:,:,i,j]
+            ll, vv = eigen(sc)
+            sc = sc + sqrt(eps(ll[end])) .* I
+            chols[:,:,i,j] = cholesky(sc).U
         end
     end
-    return var_coefs
+    chol_coefs = zeros((12, D, D, 2))
+    for i in 1:12
+        for j in 1:D
+            for k in 1:D
+                y = [chols[j,k,i,n] for n in 1:num_years]
+                A1 = fill(1., num_years)
+                A2 = ens_gmt'
+                A = hcat(A1, A2)
+                chol_coefs[i, j, k, :] = A \ y
+            end
+        end
+    end
+    if return_chols
+        return chol_coefs, chols
+    end
+    return chol_coefs
 end
+
 
 
 ### testing functions
 
-function get_cov(gmt, corrs, var_coefs) #need all the corrs together
-    # size(corrs) = (2d, 2d, 12)
-    covs = zeros(size(corrs))
+function get_cov(gmt, chol_coefs) 
+    D = size(chol_coefs)[2]
+    covs = zeros((D, D, 12))
     for i in 1:12
-        vars1 = var_coefs[i, :, 2].*gmt .+ var_coefs[i, :, 1] #first month
-        vars2 = []
-        try
-            vars2 = var_coefs[i+1, :, 2].*gmt .+ var_coefs[i+1, :, 1] #second month
-        catch
-            vars2 = var_coefs[1, :, 2].*gmt .+ var_coefs[1, :, 1] #second month
-        end
-        vars = vcat(vars1, vars2)
-        covs[:,:,i] = diagm(sqrt.(vars))*corrs[:,:,i]*diagm(sqrt.(vars))
+        L = chol_coefs[i, :, :, 2] .* gmt .+ chol_coefs[i, :, :, 1]
+        covs[:,:,i] = L'*L
     end
     return covs
 end
@@ -99,13 +104,13 @@ function get_means(gmt, mean_coefs)
 end
 
 
-function emulate(gmt_list, mean_coefs, corrs, var_coefs)
+function emulate(gmt_list, mean_coefs, chol_coefs)
     num_years = length(gmt_list)
     # gmt assumed constant for each year
     trajectory = zeros(size(mean_coefs)[2], 12*num_years) 
 
     gmt = gmt_list[1]
-    covs = get_cov(gmt, corrs, var_coefs)
+    covs = get_cov(gmt, chol_coefs)
     means = get_means(gmt, mean_coefs) #list of twelve
 
     dec = means[:,12]
@@ -120,7 +125,7 @@ function emulate(gmt_list, mean_coefs, corrs, var_coefs)
             gmt = gmt_list[year+1]
             new_means = get_means(gmt, mean_coefs)
             trajectory[:, (12+1)+(year-1)*12] = emulate_step(trajectory[:, 12+(year-1)*12], 12, covs, means; new_means=new_means) #do the december transition
-            covs = get_cov(gmt, corrs, var_coefs)
+            covs = get_cov(gmt, chol_coefs)
             means = new_means
         end
     end
@@ -136,12 +141,24 @@ function emulate_step(prev_val, prev_month, covs, means; new_means=nothing)
     # new_means - vector of means for the GMT of the new month, if different
     μ_1 = means[:,prev_month]
     μ_2 = isnothing(new_means) ? means[:,prev_month+1] : new_means[:,1] #hardcoded for switch to happen in january!
-    Σ = covs[:,:,prev_month]
+    Σ = covs[:,:,prev_month] 
+    Σ += I .* sqrt(eps(maximum(Σ))) #+ sqrt(eps(maximum(covs[:,:,prev_month]))) .* I # I swear all the covs can be factorized !!!!!!
     d = Int(size(covs)[1]/2)
-    Σ_11, Σ_12, Σ_21, Σ_22 = Σ[1:d,1:d], Σ[1:d,d+1:end], Σ[d+1:end,1:d], Σ[d+1:end,d+1:end]
+    Σ_11, Σ_12, Σ_21, Σ_22 = Σ[1:d,1:d], Σ[1:d,d+1:end], Σ[d+1:end,1:d], Σ[d+1:end,d+1:end] 
     μ_out = μ_2 .+ Σ_21 * inv(Σ_11) * (prev_val .- μ_1)
-    Σ_out = Σ_22 .- Σ_21 * inv(Σ_11) * Σ_12
-    Σ_out = round.(Σ_out,digits=4)
+    # Σ_out = Σ_22 .- Σ_21 * inv(Σ_11) * Σ_12
+    Σ_out = Symmetric(Σ_22) - Symmetric(Σ_21 * (Σ_11 \ Σ_12))
+    Σ_out = Σ_out + sqrt(eps(maximum(Σ_out))) .* I
+    # Σ_out = round.(Σ_out,digits=4) # why is this here? 
     dist = MvNormal(μ_out, Σ_out)
+    # try
+    #     dist = MvNormal(μ_out, Σ_out)
+    # catch
+    #     println(Σ_out==Σ_out')
+    #     println(minimum(eigen(Σ_out).values))
+    #     println(maximum(eigen(Σ_out).values))
+    # end
     return rand(dist)
 end
+
+
