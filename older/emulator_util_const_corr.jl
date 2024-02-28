@@ -17,32 +17,32 @@ function get_corrs(projts)
     return corrs
 end
 
-function get_var_coefs(ens_projts, ens_gmt, mean_coefs; return_vars=false)
-    d, ts, num_ens_members = size(ens_projts)
-    t = Int(ts/12)
-    var_coefs = zeros((12, d, 2))
-    vars_array = zeros((12, d, num_ens_members, t))
-    for i in 1:12
-        y = ens_projts[:,i:12:end,1] 
-        for j in 2:num_ens_members
-            y = hcat(y, ens_projts[:,i:12:end,j])
-        end
-        for j in 1:d
-            b, m = mean_coefs[i, j, :]
-            fits = repeat([m*x+b for x in ens_gmt]',num_ens_members)
-            vars = (y[j,:].-fits).^2
-            A1 = fill(1., length(ens_gmt)*num_ens_members)
-            A2 = repeat(ens_gmt', num_ens_members)
-            A = hcat(A1, A2)
-            var_coefs[i, j, :] = A \ vars
-            vars_array[i,j,:,:] = reshape(vars, (t, num_ens_members))'
-        end
-    end
-    if return_vars
-        return var_coefs, vars_array
-    end
-    return var_coefs
-end
+# function get_var_coefs(ens_projts, ens_gmt, mean_coefs; return_vars=false)
+#     d, ts, num_ens_members = size(ens_projts)
+#     t = Int(ts/12)
+#     var_coefs = zeros((12, d, 2))
+#     vars_array = zeros((12, d, num_ens_members, t))
+#     for i in 1:12
+#         y = ens_projts[:,i:12:end,1] 
+#         for j in 2:num_ens_members
+#             y = hcat(y, ens_projts[:,i:12:end,j])
+#         end
+#         for j in 1:d
+#             b, m = mean_coefs[i, j, :]
+#             fits = repeat([m*x+b for x in ens_gmt]',num_ens_members)
+#             vars = (y[j,:].-fits).^2
+#             A1 = fill(1., length(ens_gmt)*num_ens_members)
+#             A2 = repeat(ens_gmt', num_ens_members)
+#             A = hcat(A1, A2)
+#             var_coefs[i, j, :] = A \ vars
+#             vars_array[i,j,:,:] = reshape(vars, (t, num_ens_members))'
+#         end
+#     end
+#     if return_vars
+#         return var_coefs, vars_array
+#     end
+#     return var_coefs
+# end
 
 
 ##emulation funcs

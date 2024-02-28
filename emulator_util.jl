@@ -1,5 +1,6 @@
-### data functions
+using Statistics, Distributions, LinearAlgebra
 
+### data functions
 function get_gmt_list(ts::ncData)
     # applies weighting and returns monthly average over entire geographic field
     hist_mean_temp = weighted_avg(ts)
@@ -33,6 +34,7 @@ function get_mean_coefs(ens_projts, ens_gmt)
 end
 
 function gmt_cov(ens_projts, ens_gmt; detrend=false,  mean_coefs=nothing, corrs=false)
+    d = size(ens_projts)[1]
     num_years = length(ens_gmt)
     covs = zeros((2*d, 2*d, 12, num_years))
     for i in 1:12
@@ -103,6 +105,23 @@ function get_means(gmt, mean_coefs)
     return out
 end
 
+function emulate_no_cov(gmt_list, mean_coefs, chol_coefs)
+    num_years = length(gmt_list)
+    # gmt assumed constant for each year
+    trajectory = zeros(size(mean_coefs)[2], 12*num_years) 
+    for yr in 1:num_years
+        gmt = gmt_list[yr]
+        covs = get_cov(gmt, chol_coefs) #alternative to this (using cholesky) would be to have const corr
+        for i in 1:12
+            μ = get_means(gmt, mean_coefs)[:,i]
+            Σ = Symmetric(covs[:,:,i][1:d,1:d]) #symmetric might not be necessary
+            dist = MvNormal(μ, Σ)
+            trajectory[:,(yr-1)*12 + i] = rand(dist)
+        end
+    end
+    return trajectory
+end
+
 
 function emulate(gmt_list, mean_coefs, chol_coefs)
     num_years = length(gmt_list)
@@ -162,3 +181,32 @@ function emulate_step(prev_val, prev_month, covs, means; new_means=nothing)
 end
 
 
+
+###### for exploration/visualization purposes
+
+function get_var_coefs(ens_projts, ens_gmt, mean_coefs; return_vars=false)
+    d, ts, num_ens_members = size(ens_projts)
+    t = Int(ts/12)
+    var_coefs = zeros((12, d, 2))
+    vars_array = zeros((12, d, num_ens_members, t))
+    for i in 1:12
+        y = ens_projts[:,i:12:end,1] 
+        for j in 2:num_ens_members
+            y = hcat(y, ens_projts[:,i:12:end,j])
+        end
+        for j in 1:d
+            b, m = mean_coefs[i, j, :]
+            fits = repeat([m*x+b for x in ens_gmt]',num_ens_members)
+            vars = (y[j,:].-fits).^2
+            A1 = fill(1., length(ens_gmt)*num_ens_members)
+            A2 = repeat(ens_gmt', num_ens_members)
+            A = hcat(A1, A2)
+            var_coefs[i, j, :] = A \ vars
+            vars_array[i,j,:,:] = reshape(vars, (t, num_ens_members))'
+        end
+    end
+    if return_vars
+        return var_coefs, vars_array
+    end
+    return var_coefs
+end

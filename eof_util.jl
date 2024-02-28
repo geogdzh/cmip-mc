@@ -1,3 +1,5 @@
+using LinearAlgebra, Statistics
+
 
 # function reshape_data(d::ncData)
 #     M = length(d.lonvec) #size(d.data, 1)
