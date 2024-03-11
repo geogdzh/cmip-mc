@@ -123,7 +123,7 @@ function emulate_no_cov(gmt_list, mean_coefs, chol_coefs)
 end
 
 
-function emulate(gmt_list, mean_coefs, chol_coefs)
+function emulate(gmt_list, mean_coefs, chol_coefs; no_cov=false)
     num_years = length(gmt_list)
     # gmt assumed constant for each year
     trajectory = zeros(size(mean_coefs)[2], 12*num_years) 
@@ -133,7 +133,7 @@ function emulate(gmt_list, mean_coefs, chol_coefs)
     means = get_means(gmt, mean_coefs) #list of twelve
 
     dec = means[:,12]
-    trajectory[:,1] = emulate_step(dec, 12, covs, means; new_means=means) #think again aobut whether or not this makes sense
+    trajectory[:,1] = emulate_step(dec, 12, covs, means; new_means=means, no_cov=no_cov) #think again aobut whether or not this makes sense
 
     for year in 1:num_years #year is an index
         for i in 1:11 #here i is the prev_month
@@ -152,7 +152,7 @@ function emulate(gmt_list, mean_coefs, chol_coefs)
 end
 
 
-function emulate_step(prev_val, prev_month, covs, means; new_means=nothing)
+function emulate_step(prev_val, prev_month, covs, means; new_means=nothing, no_cov=false)
     # prev_val - value of preceding month
     # prev_month - integer of preceding month
     # covs - matrix of covariances for the GMT of the preceding month; size = (10, 10, 12) where 10=2d
@@ -161,22 +161,18 @@ function emulate_step(prev_val, prev_month, covs, means; new_means=nothing)
     μ_1 = means[:,prev_month]
     μ_2 = isnothing(new_means) ? means[:,prev_month+1] : new_means[:,1] #hardcoded for switch to happen in january!
     Σ = covs[:,:,prev_month] 
-    Σ += I .* sqrt(eps(maximum(Σ))) #+ sqrt(eps(maximum(covs[:,:,prev_month]))) .* I # I swear all the covs can be factorized !!!!!!
+    Σ += I .* sqrt(eps(maximum(Σ))) #+ sqrt(eps(maximum(covs[:,:,prev_month]))) .* I 
     d = Int(size(covs)[1]/2)
     Σ_11, Σ_12, Σ_21, Σ_22 = Σ[1:d,1:d], Σ[1:d,d+1:end], Σ[d+1:end,1:d], Σ[d+1:end,d+1:end] 
     μ_out = μ_2 .+ Σ_21 * inv(Σ_11) * (prev_val .- μ_1)
-    # Σ_out = Σ_22 .- Σ_21 * inv(Σ_11) * Σ_12
-    Σ_out = Symmetric(Σ_22) - Symmetric(Σ_21 * (Σ_11 \ Σ_12))
-    Σ_out = Σ_out + sqrt(eps(maximum(Σ_out))) .* I
-    # Σ_out = round.(Σ_out,digits=4) # why is this here? 
+    if no_cov
+        Σ_out = Σ_22
+    else
+        # Σ_out = Σ_22 .- Σ_21 * inv(Σ_11) * Σ_12 #this is the mathematical model
+        Σ_out = Symmetric(Σ_22) - Symmetric(Σ_21 * (Σ_11 \ Σ_12))
+        Σ_out = Σ_out + sqrt(eps(maximum(Σ_out))) .* I
+    end
     dist = MvNormal(μ_out, Σ_out)
-    # try
-    #     dist = MvNormal(μ_out, Σ_out)
-    # catch
-    #     println(Σ_out==Σ_out')
-    #     println(minimum(eigen(Σ_out).values))
-    #     println(maximum(eigen(Σ_out).values))
-    # end
     return rand(dist)
 end
 
