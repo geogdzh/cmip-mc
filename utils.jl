@@ -30,7 +30,7 @@ struct ncData{D, NV, TV, T}
     timevec::T
 end
 
-function ncData(file, varname)
+function ncData(file, varname) # need to generalize the timevec construction!
     data = ncread(file, varname)
     lonvec = ncread(file, "lon")
     latvec = ncread(file, "lat")
