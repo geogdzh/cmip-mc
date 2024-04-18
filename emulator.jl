@@ -47,6 +47,10 @@ ts3 = ncData(file, "ts") # actual data for comparison
 gmt_list = get_gmt_list(ts3)
 M, N, L = size(ts3.data)
 
+M = 192
+N = 96
+L = 1128
+
 # sim = emulate(gmt_list, mean_coefs, chol_coefs)
 # sim = emulate_no_cov(gmt_list, mean_coefs, chol_coefs)
 # newdata = back_to_data(sim, basis)
@@ -58,41 +62,25 @@ M, N, L = size(ts3.data)
 # newtp = newdata[M*N+1:end, :]
 
 #### correct way of comparing rmse -- only needs chol_coefs as the 'emulator' component! 
-# all_gmts = zeros((num_ens_members, Int(L1/12)))
-# all_data = zeros((M,N, L1, num_ens_members))
-# for i in ProgressBar(1:num_ens_members)
-#     file = "data/ts/RCP85/ts/ts_Amon_MPI-ESM_rcp85_r$(string(i, pad=3))i2005p3_200601-209912.nc"
-#     ts = ncData(file, "ts") 
-#     # all_gmts[i,:] = get_gmt_list(ts)
-#     all_data[:,:,:,i] = ts.data[:,:,:]
-# end
-# true_var = var(all_data, dims=4)[:,:,:,1]
-# ext = extrema(true_var)
-# true_ens_gmt = mean(all_gmts, dims=1)[:]
 
-# hfile = h5open("data/vars_rcp85_90ens.hdf5", "w")
-# write(hfile, "true_var", true_var)
-# write(hfile, "num_ens_members", num_ens_members)
-# write(hfile, "true_ens_gmt", true_ens_gmt)
-# close(hfile)
-
-hfile = h5open("data/vars_rcp85_90ens.hdf5", "r")
+hfile = h5open("data/vars_rcp85_90ens.hdf5", "r") #this is the actual ensemble variance of the CMIP model
 true_var = read(hfile, "true_var")
 num_ens_members = read(hfile, "num_ens_members")
 true_ens_gmt = read(hfile, "true_ens_gmt")
+true_ens_mean = read(hfile, "true_ens_mean") #NEW!
 close(hfile)
-ext = extrema(true_var)
+ext = (0., extrema(true_var)[2])
 
-ens_vars = zeros(M, N, L)
+ens_vars_20 = zeros(M, N, L) #now to get the ensemble variance dictated by the cholesky fits
 for m in ProgressBar(1:Int(L/12))
     for n in 1:12
         co = get_cov(true_ens_gmt[m], chol_coefs)[:,:,n] #there is maybe a more efficient way to do this?
-        ens_vars[:,:,(m-1)*12+n] = shape_data(sum([co[i,j].*basis[:,i].*basis[:,j] for i in 1:d, j in 1:d]), M, N)
+        ens_vars_20[:,:,(m-1)*12+n] = shape_data(sum([co[i,j].*basis[:,i].*basis[:,j] for i in 1:d, j in 1:d]), M, N)
     end
 end
-# heatmap(ens_vars[:,:,13])
+heatmap(ens_vars[:,:,7], colorrange=ext)
 
-function get_ens_vars(d)
+function get_ens_vars(d) # also a func of true_ens_gmt, chol_coefs, basis
     hfile = h5open("data/gaussian_emulator_rcp85_$(d)d.hdf5", "r")
     mean_coefs = read(hfile, "mean_coefs")
     chol_coefs = read(hfile, "chol_coefs")
@@ -109,18 +97,24 @@ function get_ens_vars(d)
     return ens_vars
 end
 
-ens_vars_80 = get_ens_vars(60)
-ens_vars_60 = ens_vars_80
-ens_vars_100 = get_ens_vars(100)
-ens_vars_200 = get_ens_vars(200)
+# ens_vars_20 = get_ens_vars(20)
+# ens_vars_60 = get_ens_vars(60)
+# ens_vars_100 = get_ens_vars(100)
+# ens_vars_200 = get_ens_vars(200)
 
-hfile = h5open("data/ens_vars_rcp85.hdf5", "w")
-write(hfile, "ens_vars_20", ens_vars)
-write(hfile, "ens_vars_60", ens_vars_60)
-write(hfile, "ens_vars_100", ens_vars_100)
-write(hfile, "ens_vars_200", ens_vars_200)
+# hfile = h5open("data/ens_vars_rcp85.hdf5", "r+")
+# write(hfile, "ens_vars_20", ens_vars_20)
+# write(hfile, "ens_vars_60", ens_vars_60)
+# write(hfile, "ens_vars_100", ens_vars_100)
+# write(hfile, "ens_vars_200", ens_vars_200)
+# close(hfile)
+
+hfile = h5open("data/ens_vars_rcp85.hdf5", "r")
+ens_vars_20 = read(hfile, "ens_vars_20")
+ens_vars_60 = read(hfile, "ens_vars_60")
+ens_vars_100 = read(hfile, "ens_vars_100")
+ens_vars_200 = read(hfile, "ens_vars_200")
 close(hfile)
-
 
 begin
     monthtime = 1
@@ -128,32 +122,36 @@ begin
     ax = Axis(fig[1,1], title="true model variance")
     heatmap!(ax, true_var[:,:,monthtime], colorrange=ext)
     ax = Axis(fig[1,2], title="emulator variance")
-    heatmap!(ax, ens_vars[:,:,monthtime], colorrange=ext)
+    heatmap!(ax, ens_vars_100[:,:,monthtime], colorrange=ext)
     Colorbar(fig[1,3], colorrange=ext)
     display(fig)
     # save("figs/ens_var_compare_rcp85_month1.png", fig)
 end
 
-rmse = sqrt.(sum((true_var.-ens_vars).^2, dims=3)[:,:,1]./size(true_var)[3])
+#to be clear, right now we're looking at the RMSE of the variance! i.e. how well does the emulator capture model variance
 
-rmse_time = sqrt.(sum((true_var.-ens_vars).^2, dims=(1,2))[1,1,:]./(size(true_var)[1]*size(true_var)[2]))
+rmse = sqrt.(sum((true_var.-ens_vars_20).^2, dims=3)[:,:,1]./size(true_var)[3]) #time average rmse (shaped as a map)
+rmse_time = sqrt.(sum((true_var.-ens_vars_20).^2, dims=(1,2))[1,1,:]./(size(true_var)[1]*size(true_var)[2])) #spatial average rmse (shaped as a timeseries)
 lines(rmse_time[12:12:end])
 
 rmse_60 = sqrt.(sum((true_var.-ens_vars_60).^2, dims=3)[:,:,1]./size(true_var)[3])
+rmse_time_60 = sqrt.(sum((true_var.-ens_vars_60).^2, dims=(1,2))[1,1,:]./(size(true_var)[1]*size(true_var)[2]))
 rmse_100 = sqrt.(sum((true_var.-ens_vars_100).^2, dims=3)[:,:,1]./size(true_var)[3])
+rmse_time_100 = sqrt.(sum((true_var.-ens_vars_100).^2, dims=(1,2))[1,1,:]./(size(true_var)[1]*size(true_var)[2]))
 rmse_200 = sqrt.(sum((true_var.-ens_vars_200).^2, dims=3)[:,:,1]./size(true_var)[3])
+rmse_time_200 = sqrt.(sum((true_var.-ens_vars_200).^2, dims=(1,2))[1,1,:]./(size(true_var)[1]*size(true_var)[2]))
 
 begin
     fig = Figure(resolution=(1000,800))
     ax = Axis(fig[1,1], title="RMSE")
-    heatmap!(ax, rmse)
+    heatmap!(ax, rmse_100)
     Colorbar(fig[1,2], colorrange=extrema(rmse))
     display(fig)
     # save("figs/ens_var_rmse_rcp85_20modes.png", fig)
 end
 
 begin
-    fig = Figure(resolution=(2000,1000))
+    fig = Figure(resolution=(2000,1500))
     ax = Axis(fig[1,1], title="20 modes")
     heatmap!(ax, rmse, colorrange=extrema(rmse))
     ax = Axis(fig[1,2], title="60 modes")
@@ -163,6 +161,21 @@ begin
     ax = Axis(fig[2,2], title="200 modes")
     heatmap!(ax, rmse_200, colorrange=extrema(rmse))
     Colorbar(fig[1,3], colorrange=extrema(rmse))
+    display(fig)
+    # save("figs/ens_var_rmse_rcp85.png", fig)
+end
+
+
+begin
+    fig = Figure(resolution=(1000,800))
+    ax = Axis(fig[1,1], title="RMSE - not a true spatial average")
+    lines!(ax, month_to_year_avg(rmse_time), label="20 modes")
+    lines!(ax, month_to_year_avg(rmse_time_60), label="60 modes")
+    lines!(ax, month_to_year_avg(rmse_time_100), label="100 modes")
+    lines!(ax, month_to_year_avg(rmse_time_200), label="200 modes")
+    axislegend(ax)
+    display(fig)
+    # save("figs/ens_var_rmse_time_rcp85.png", fig)
 end
 
 

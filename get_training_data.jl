@@ -1,4 +1,4 @@
-using HDF5, ProgressBars
+using HDF5#, ProgressBars
 include("utils.jl")
 include("eof_util.jl")
 include("emulator_util.jl")
@@ -21,7 +21,9 @@ projts = zeros((d, (L1+L2), num_ens_members))
 ens_gmt = zeros((num_ens_members, Int((L1+L2)/12)))
 
 file_head = "/net/fs06/d3/CMIP5/MPI-GE/"
-for i in ProgressBar(1:num_ens_members)
+for i in 1:num_ens_members#ProgressBar(1:num_ens_members)
+    println("working on ensemble member $(i)")
+    flush(stdout)
     files = [file_head*"historical/ts/ts_Amon_MPI-ESM_historical_r$(string(i, pad=3))i1850p3_185001-200512.nc",
         # file_head*"RCP26/ts/ts_Amon_MPI-ESM_rcp26_r$(string(i, pad=3))i2005p3_200601-209912.nc"]
         file_head*"RCP85/ts/ts_Amon_MPI-ESM_rcp85_r$(string(i, pad=3))i2005p3_200601-209912.nc"]

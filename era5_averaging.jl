@@ -1,4 +1,4 @@
-# actual tool used to generate era5 monthly averages
+# actual tool used to generate era5 monthly averages, courtesy of andre
 
 using NCDatasets, ProgressBars
 # data_directory = "/net/fs06/d3/ERA5/t2m"
