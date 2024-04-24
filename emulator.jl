@@ -1,51 +1,18 @@
+# this is just an analysis script
+
 using CairoMakie, ProgressBars, HDF5
 include("utils.jl")
 include("eof_util.jl")
 include("emulator_util.jl") 
 
-############## load a basis
-# # hfile = h5open("data/temp-precip_basis.hdf5", "r")
-# hfile = h5open("data/temp_basis.hdf5", "r") #this basis is calculated from just one ens member #and we're assuming that it's teh same for all rcp scenarios
-# basis = read(hfile, "basis")
-# close(hfile)
-# d = size(basis)[2]
-
-#### load training data
-# hfile = h5open("data/training_data_with85_20d_90ens.hdf5", "r")
-# ens_projts = read(hfile, "projts")
-# ens_gmt = read(hfile, "ens_gmt")
-# num_ens_members = read(hfile, "num_ens_members")
-# close(hfile)
-# ens_gmt = mean(ens_gmt, dims=1)
-
-# NEW
-# mean_coefs = get_mean_coefs(ens_projts, ens_gmt) #updated
-# covs = gmt_cov(ens_projts, ens_gmt)
-# var_coefs, vars = get_var_coefs(ens_projts, ens_gmt, mean_coefs; return_vars=true) #updated
-# corrs = gmt_cov(ens_projts, ens_gmt; corrs=true)
-# chol_coefs, chols = get_chol_coefs(covs, ens_gmt; return_chols=true)
-
-
-# hfile = h5open("data/gaussian_emulator_rcp85_20d.hdf5", "w") #SHOULD add ensembel size?
-# write(hfile, "mean_coefs", mean_coefs)
-# write(hfile, "chol_coefs", chol_coefs)
-# write(hfile, "basis", basis)
-# close(hfile)
-
-hfile = h5open("data/gaussian_emulator_rcp85_20d.hdf5", "r")
-mean_coefs = read(hfile, "mean_coefs")
-chol_coefs = read(hfile, "chol_coefs")
-basis = read(hfile, "basis")
-close(hfile)
-d = size(basis)[2]
-
 #################### ok let's test it out for real
 
 #get a sample gmt list
-file = "/net/fs06/d3/CMIP5/MPI-GE/RCP85/ts/ts_Amon_MPI-ESM_rcp85_r$(string(91, pad=3))i2005p3_200601-209912.nc" # 50 for what i was doing before #FIX THE FILESYSTEM
-ts3 = ncData(file, "ts") # actual data for comparison
+file3 = "/net/fs06/d3/CMIP5/MPI-GE/RCP85/ts/ts_Amon_MPI-ESM_rcp85_r$(string(91, pad=3))i2005p3_200601-209912.nc" 
+ts3 = ncData(file3, "ts") # actual data for comparison
 gmt_list = get_gmt_list(ts3)
 M, N, L = size(ts3.data)
+latvec = ts3.latvec
 
 M = 192
 N = 96
@@ -63,53 +30,77 @@ L = 1128
 
 #### correct way of comparing rmse -- only needs chol_coefs as the 'emulator' component! 
 
-hfile = h5open("data/vars_rcp85_90ens.hdf5", "r") #this is the actual ensemble variance of the CMIP model
+hfile = h5open("data/vars_rcp26_90ens.hdf5", "r") #this is the actual ensemble variance of the CMIP model
 true_var = read(hfile, "true_var")
 num_ens_members = read(hfile, "num_ens_members")
 true_ens_gmt = read(hfile, "true_ens_gmt")
-true_ens_mean = read(hfile, "true_ens_mean") #NEW!
+true_ens_mean = read(hfile, "true_ens_mean")[:,:,:,1] #NEW!
 close(hfile)
-ext = (0., extrema(true_var)[2])
+# ext = (0., extrema(true_var)[2])
 
-ens_vars_20 = zeros(M, N, L) #now to get the ensemble variance dictated by the cholesky fits
-for m in ProgressBar(1:Int(L/12))
-    for n in 1:12
-        co = get_cov(true_ens_gmt[m], chol_coefs)[:,:,n] #there is maybe a more efficient way to do this?
-        ens_vars_20[:,:,(m-1)*12+n] = shape_data(sum([co[i,j].*basis[:,i].*basis[:,j] for i in 1:d, j in 1:d]), M, N)
-    end
-end
-heatmap(ens_vars[:,:,7], colorrange=ext)
+### emulator vars adn means
 
-function get_ens_vars(d) # also a func of true_ens_gmt, chol_coefs, basis
+function get_ens_vars(d, true_ens_gmt; get_means=false) # OR the means lol
+    M = 192
+    N = 96
+    L = 1128
     hfile = h5open("data/gaussian_emulator_rcp85_$(d)d.hdf5", "r")
     mean_coefs = read(hfile, "mean_coefs")
     chol_coefs = read(hfile, "chol_coefs")
     basis = read(hfile, "basis")
     close(hfile)
-    d = size(basis)[2]
     ens_vars = zeros(M, N, L)
     for m in ProgressBar(1:Int(L/12))
         for n in 1:12
-            co = get_cov(true_ens_gmt[m], chol_coefs)[:,:,n] #there is maybe a more efficient way to do this?
-            ens_vars[:,:,(m-1)*12+n] = shape_data(sum([co[i,j].*basis[:,i].*basis[:,j] for i in 1:d, j in 1:d]), M, N)
+            if get_means
+                ens_vars[:,:,(m-1)*12+n] = shape_data(back_to_data(mean_coefs[n,:,2].*true_ens_gmt[m] .+ mean_coefs[n, :, 1], basis), M, N)
+            else
+                co = get_cov(true_ens_gmt[m], chol_coefs)[:,:,n] #there is maybe a more efficient way to do this?
+                ens_vars[:,:,(m-1)*12+n] = shape_data(sum([co[i,j].*basis[:,i].*basis[:,j] for i in 1:d, j in 1:d]), M, N)
+            end
         end
     end
     return ens_vars
 end
 
-# ens_vars_20 = get_ens_vars(20)
-# ens_vars_60 = get_ens_vars(60)
-# ens_vars_100 = get_ens_vars(100)
-# ens_vars_200 = get_ens_vars(200)
+######################################################################################################################
+# ens_means_20 = get_ens_vars(20, true_ens_gmt; get_means=true)
+# ens_means_60 = get_ens_vars(60, true_ens_gmt; get_means=true)
+# ens_means_100 = get_ens_vars(100, true_ens_gmt; get_means=true)
+# ens_means_200 = get_ens_vars(200, true_ens_gmt; get_means=true)
 
-# hfile = h5open("data/ens_vars_rcp85.hdf5", "r+")
+# rmse_means_20 = sqrt.(sum((true_ens_mean.-ens_means_20).^2, dims=3)[:,:,1]./size(true_ens_mean)[3]) #time average rmse (shaped as a map) #this is correct
+# # ext_means = (0., maximum(rmse_means_20)) #this is FIXED based on teh rcp8.5 compariosn
+# rmse_means_60 = sqrt.(sum((true_ens_mean.-ens_means_60).^2, dims=3)[:,:,1]./size(true_ens_mean)[3])
+# rmse_means_100 = sqrt.(sum((true_ens_mean.-ens_means_100).^2, dims=3)[:,:,1]./size(true_ens_mean)[3])
+# rmse_means_200 = sqrt.(sum((true_ens_mean.-ens_means_200).^2, dims=3)[:,:,1]./size(true_ens_mean)[3])
+
+# rmse_means_time_20 = sqrt.(weighted_avg((true_ens_mean.-ens_means_20).^2, latvec)) #spatial average rmse (shaped as a timeseries)
+# rmse_means_time_60 = sqrt.(weighted_avg((true_ens_mean.-ens_means_60).^2, latvec))
+# rmse_means_time_100 = sqrt.(weighted_avg((true_ens_mean.-ens_means_100).^2, latvec))
+# rmse_means_time_200 = sqrt.(weighted_avg((true_ens_mean.-ens_means_200).^2, latvec))
+
+# rmse_mean_numbers = zeros((4, 3))
+# all_rmse_means_time = zeros((4, 3, 1128))
+# hfile = h5open("data/ens_means_rmse_comparison.hdf5", "w")
+# write(hfile, "rmse_mean_numbers", rmse_mean_numbers)
+# write(hfile, "all_rmse_means_time", all_rmse_means_time)
+# close(hfile)
+######################################################################################################################
+
+# ens_vars_20 = get_ens_vars(20, true_ens_gmt)
+# ens_vars_60 = get_ens_vars(60, true_ens_gmt)
+# ens_vars_100 = get_ens_vars(100, true_ens_gmt)
+# ens_vars_200 = get_ens_vars(200, true_ens_gmt)
+
+# hfile = h5open("data/ens_vars_rcp26.hdf5", "r+")
 # write(hfile, "ens_vars_20", ens_vars_20)
 # write(hfile, "ens_vars_60", ens_vars_60)
 # write(hfile, "ens_vars_100", ens_vars_100)
 # write(hfile, "ens_vars_200", ens_vars_200)
 # close(hfile)
 
-hfile = h5open("data/ens_vars_rcp85.hdf5", "r")
+hfile = h5open("data/ens_vars_rcp26.hdf5", "r")
 ens_vars_20 = read(hfile, "ens_vars_20")
 ens_vars_60 = read(hfile, "ens_vars_60")
 ens_vars_100 = read(hfile, "ens_vars_100")
@@ -130,53 +121,87 @@ end
 
 #to be clear, right now we're looking at the RMSE of the variance! i.e. how well does the emulator capture model variance
 
-rmse = sqrt.(sum((true_var.-ens_vars_20).^2, dims=3)[:,:,1]./size(true_var)[3]) #time average rmse (shaped as a map)
-rmse_time = sqrt.(sum((true_var.-ens_vars_20).^2, dims=(1,2))[1,1,:]./(size(true_var)[1]*size(true_var)[2])) #spatial average rmse (shaped as a timeseries)
-lines(rmse_time[12:12:end])
-
+rmse_20 = sqrt.(sum((true_var.-ens_vars_20).^2, dims=3)[:,:,1]./size(true_var)[3]) #time average rmse (shaped as a map)
+# ext_var_rmse = (0., maximum(rmse_20)) - fix this based on the rcp8.5 comparison
 rmse_60 = sqrt.(sum((true_var.-ens_vars_60).^2, dims=3)[:,:,1]./size(true_var)[3])
-rmse_time_60 = sqrt.(sum((true_var.-ens_vars_60).^2, dims=(1,2))[1,1,:]./(size(true_var)[1]*size(true_var)[2]))
 rmse_100 = sqrt.(sum((true_var.-ens_vars_100).^2, dims=3)[:,:,1]./size(true_var)[3])
-rmse_time_100 = sqrt.(sum((true_var.-ens_vars_100).^2, dims=(1,2))[1,1,:]./(size(true_var)[1]*size(true_var)[2]))
 rmse_200 = sqrt.(sum((true_var.-ens_vars_200).^2, dims=3)[:,:,1]./size(true_var)[3])
-rmse_time_200 = sqrt.(sum((true_var.-ens_vars_200).^2, dims=(1,2))[1,1,:]./(size(true_var)[1]*size(true_var)[2]))
 
-begin
-    fig = Figure(resolution=(1000,800))
-    ax = Axis(fig[1,1], title="RMSE")
-    heatmap!(ax, rmse_100)
-    Colorbar(fig[1,2], colorrange=extrema(rmse))
-    display(fig)
-    # save("figs/ens_var_rmse_rcp85_20modes.png", fig)
-end
+rmse_time_20 = sqrt.(weighted_avg((true_var.-ens_vars_20).^2, latvec)) #spatial average rmse (shaped as a timeseries
+rmse_time_60 = sqrt.(weighted_avg((true_var.-ens_vars_60).^2, latvec))
+rmse_time_100 = sqrt.(weighted_avg((true_var.-ens_vars_100).^2, latvec))
+rmse_time_200 = sqrt.(weighted_avg((true_var.-ens_vars_200).^2, latvec))
+
+# rcp26_time_avgs = (rmse_time_20, rmse_time_60, rmse_time_100, rmse_time_200)
+# rcp45_time_avgs = (rmse_time_20, rmse_time_60, rmse_time_100, rmse_time_200)
+# rcp85_time_avgs = (rmse_time_20, rmse_time_60, rmse_time_100, rmse_time_200)
+
+# rmse_var_numbers = zeros((4, 3))
+# all_rmse_vars_time = zeros((4, 3, 1128))
+# hfile = h5open("data/ens_vars_rmse_comparison.hdf5", "w")
+# write(hfile, "rmse_var_numbers", rmse_var_numbers)
+# write(hfile, "all_rmse_vars_time", all_rmse_vars_time)
+# close(hfile)
+
+hfile = h5open("data/ens_means_rmse_comparison.hdf5", "r+")
+rmse_mean_numbers = read(hfile, "rmse_mean_numbers")
+close(hfile)
+
 
 begin
     fig = Figure(resolution=(2000,1500))
     ax = Axis(fig[1,1], title="20 modes")
-    heatmap!(ax, rmse, colorrange=extrema(rmse))
+    # heatmap!(ax, rmse_20, colorrange=extrema(rmse))
+    heatmap!(ax, rmse_means_20, colorrange=ext_means)
     ax = Axis(fig[1,2], title="60 modes")
-    heatmap!(ax, rmse_60,  colorrange=extrema(rmse))
+    # heatmap!(ax, rmse_60,  colorrange=extrema(rmse))
+    heatmap!(ax, rmse_means_60,  colorrange=ext_means)
     ax = Axis(fig[2,1], title="100 modes")
-    heatmap!(ax, rmse_100, colorrange=extrema(rmse))
+    # heatmap!(ax, rmse_100, colorrange=extrema(rmse))
+    heatmap!(ax, rmse_means_100, colorrange=ext_means)
     ax = Axis(fig[2,2], title="200 modes")
-    heatmap!(ax, rmse_200, colorrange=extrema(rmse))
-    Colorbar(fig[1,3], colorrange=extrema(rmse))
+    # heatmap!(ax, rmse_200, colorrange=extrema(rmse))
+    heatmap!(ax, rmse_means_200, colorrange=ext_means)
+    Colorbar(fig[1,3], colorrange=ext)
     display(fig)
-    # save("figs/ens_var_rmse_rcp85.png", fig)
+    # save("figs/ens_mean_rmse_rcp26.png", fig)
 end
 
 
 begin
     fig = Figure(resolution=(1000,800))
-    ax = Axis(fig[1,1], title="RMSE - not a true spatial average")
-    lines!(ax, month_to_year_avg(rmse_time), label="20 modes")
-    lines!(ax, month_to_year_avg(rmse_time_60), label="60 modes")
-    lines!(ax, month_to_year_avg(rmse_time_100), label="100 modes")
-    lines!(ax, month_to_year_avg(rmse_time_200), label="200 modes")
-    axislegend(ax)
+    ax = Axis(fig[1,1], title="average RMSE of the variance", xlabel="years since 2005", ylabel="RMSE")
+    linestyles = [ :dot, :dashdot, :dash, :solid,]
+    for (i, ser) in enumerate(rcp26_time_avgs)
+        rmse_var_numbers[i, 1] = mean(ser)
+        all_rmse_vars_time[i, 1, :] = ser
+        lines!(ax, month_to_year_avg(ser), color=:orange, alpha=0.6, linestyle=linestyles[i])
+    end
+    for (i, ser) in enumerate(rcp45_time_avgs)
+        rmse_var_numbers[i, 2] = mean(ser)
+        all_rmse_vars_time[i, 2, :] = ser
+        lines!(ax, month_to_year_avg(ser), color=:green, alpha=0.6, linestyle=linestyles[i])
+    end
+    for (i, ser) in enumerate(rcp85_time_avgs)
+        rmse_var_numbers[i, 3] = mean(ser)
+        all_rmse_vars_time[i, 3, :] = ser
+        lines!(ax, month_to_year_avg(ser), color=:blue, alpha=0.6, linestyle=linestyles[i])
+    end
+    # lines!(ax, month_to_year_avg(rmse_time), label="20 modes")
+    # lines!(ax, month_to_year_avg(rmse_time_60), label="60 modes")
+    # lines!(ax, month_to_year_avg(rmse_time_100), label="100 modes")
+    # lines!(ax, month_to_year_avg(rmse_time_200), label="200 modes")
+
+    elems = [LineElement(color=:black, linestyle=:dot), LineElement(color=:black, linestyle=:dashdot), LineElement(color=:black, linestyle=:dash), LineElement(color=:black, linestyle=:solid)]
+    elems_2 = [LineElement(color=:orange), LineElement(color=:green), LineElement(color=:blue)]
+    labels = ["20 modes", "60 modes", "100 modes", "200 modes", "RCP2.6", "RCP4.5", "RCP8.5"]
+    axislegend(ax, [elems..., elems_2...], labels, position=:lb)
     display(fig)
-    # save("figs/ens_var_rmse_time_rcp85.png", fig)
+    # save("figs/ens_var_rmse_time_rcp_comparison.png", fig)
 end
+
+
+
 
 
 
@@ -218,6 +243,12 @@ for i in ProgressBar(1:ens_mem)
     sim_ens_projts[:,:,i] = emulate(gmt_list, mean_coefs, chol_coefs; no_cov=true)
 end
 sim_ens_var = var(sim_ens_projts, dims=3)[:,:,1]
+
+
+
+
+
+
 
 
 

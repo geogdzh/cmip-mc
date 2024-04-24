@@ -1,4 +1,4 @@
-# processing output of averaged ERA5 (not regridded though)
+# processing output of time-averaged ERA5 (not regridded though)
 
 using NetCDF, Dates, Statistics, CairoMakie, LinearAlgebra, HDF5
 include("utils.jl")
@@ -10,7 +10,7 @@ time = read(era5, "time")
 close(era5)
 Me, Ne, Le = size(era5_avg_temp)
 
-function average_data(temperature)
+function average_data(temperature) #"downscaling", could do with some metric terms, maybe
     M, N, L = size(temperature)
     pass1 = zeros(180, N, L)
     for i in 1:180

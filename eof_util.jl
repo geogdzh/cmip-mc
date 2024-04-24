@@ -72,11 +72,22 @@ function back_to_data(projts, basisU)
     return basisU*projts
 end
 
-function weighted_avg(ts::ncData)
-    M, N, L = size(ts.data)
+# function weighted_avg(ts::ncData)
+#     M, N, L = size(ts.data)
+#     Δϕ = reshape(2π / M * ones(M), (M, 1, 1))
+#     Δθ = reshape(π / N * ones(N) .* cos.(deg2rad.(ts.latvec)), (1, N, 1))
+#     # Δθ = reshape(π / N * ones(N) .* cos.(range(-π/2, π/2, N+2))[2:end-1], (1, N, 1))
+#     metric = (Δθ .* Δϕ) / (4π)
+#     return sum(metric .* ts.data, dims = (1,2))[:]
+# end
+
+function weighted_avg(data, latvec)
+    M, N, L = size(data)
     Δϕ = reshape(2π / M * ones(M), (M, 1, 1))
-    Δθ = reshape(π / N * ones(N) .* cos.(deg2rad.(ts.latvec)), (1, N, 1))
+    Δθ = reshape(π / N * ones(N) .* cos.(deg2rad.(latvec)), (1, N, 1))
     # Δθ = reshape(π / N * ones(N) .* cos.(range(-π/2, π/2, N+2))[2:end-1], (1, N, 1))
     metric = (Δθ .* Δϕ) / (4π)
-    return sum(metric .* ts.data, dims = (1,2))[:]
+    return sum(metric .* data, dims = (1,2))[:]
 end
+
+weighted_avg(ts::ncData) = weighted_avg(ts.data, ts.latvec)

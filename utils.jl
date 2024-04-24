@@ -1,4 +1,4 @@
-using NetCDF, Dates
+using Dates, NCDatasets
 
 # function get_tvec(filename)
 #     #returns vector marking the first day of each month 
@@ -30,11 +30,12 @@ struct ncData{D, NV, TV, T}
     timevec::T
 end
 
-function ncData(file, varname) # need to generalize the timevec construction!
-    data = ncread(file, varname)
-    lonvec = ncread(file, "lon")
-    latvec = ncread(file, "lat")
-    timevec = [DateTime(1850,1,1)+Month(x) for x in range(0,length(ncread(file, "time"))-1)]
+function ncData(file, varname)
+    ds = Dataset(file)
+    lonvec = ds["lon"][:]
+    latvec = ds["lat"][:]
+    timevec = ds["time"][:]
+    data = ds[varname][:]
     return ncData(data, lonvec, latvec, timevec)
 end
 

@@ -55,8 +55,8 @@ end
 function get_chol_coefs(covs, ens_gmt; return_chols=false)
     D, D, num_months, num_years = size(covs)
     # d = Int(d/2) 
-    chols = zeros((D, D, num_months, num_years))
-    for i in 1:12
+    chols = zeros((D, D, num_months, num_years)) #raising errors for array size
+    for i in 1:12 #offload years adn months sep
         for j in 1:num_years
             # print(i, " ", j, "\n")
             sc = covs[:,:,i,j]
@@ -67,7 +67,7 @@ function get_chol_coefs(covs, ens_gmt; return_chols=false)
     end
     chol_coefs = zeros((12, D, D, 2))
     for i in 1:12
-        for j in 1:D
+        for j in 1:D #can also be done sep
             for k in 1:D
                 y = [chols[j,k,i,n] for n in 1:num_years]
                 A1 = fill(1., num_years)

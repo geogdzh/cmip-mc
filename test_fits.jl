@@ -1,3 +1,42 @@
+## load the emulator
+hfile = h5open("data/gaussian_emulator_ssp585_20d.hdf5", "r")
+mean_coefs = read(hfile, "mean_coefs")
+chol_coefs = read(hfile, "chol_coefs")
+basis = read(hfile, "basis")
+num_ens_members = read(hfile, "num_ens_members")
+ens_gmt = read(hfile, "ens_gmt")
+close(hfile)
+
+hfile = h5open("data/training_data_ssp585_20d_49ens.hdf5", "r")
+ens_projts = read(hfile, "projts")[1:d, :, :]
+# ens_gmt = read(hfile, "ens_gmt")
+# num_ens_members = read(hfile, "num_ens_members")
+close(hfile)
+
+
+hfile = h5open("data/gaussian_emulator_ssp119_20d.hdf5", "r")
+mean_coefs_119 = read(hfile, "mean_coefs")
+chol_coefs_119 = read(hfile, "chol_coefs")
+basis_119 = read(hfile, "basis")
+num_ens_members_119 = read(hfile, "num_ens_members")
+ens_gmt_119 = read(hfile, "ens_gmt")
+close(hfile)
+
+hfile = h5open("data/training_data_ssp119_20d_49ens.hdf5", "r")
+ens_projts_119 = read(hfile, "projts")[1:d, :, :]
+# ens_gmt = read(hfile, "ens_gmt")
+# num_ens_members = read(hfile, "num_ens_members")
+close(hfile)
+
+
+begin
+    fig = Figure(resolution=(2000, 2000))
+    ax = Axis(fig[1,1])
+    lines!(ax, ens_gmt[:])
+    lines!(ax, ens_gmt_119[:])
+    display(fig)
+end
+
 ####test
 num_buckets = 10
 bit = Int(size(ens_projts)[2]/num_buckets)
@@ -39,17 +78,28 @@ begin
         col_index = (mode - 1) % 5 + 1
         ax = Axis(fig[row_index, col_index], title="Mode $mode")
         for i in 1:num_ens_members
-            scatter!(ax, ens_gmt[:], ens_projts[mode, mon:12:end, i], markersize=7, alpha=0.5) 
+            scatter!(ax, ens_gmt[:], ens_projts[mode, mon:12:end, i], markersize=7, alpha=0.5, color=:red) 
+            scatter!(ax, ens_gmt_119[:], ens_projts_119[mode, mon:12:end, i], markersize=7, alpha=0.5, color=:blue) 
         end
         ens_mean = mean(ens_projts[mode, mon:12:end, :], dims=2)
         scatter!(ax, ens_gmt[:], ens_mean[:], color=:black, markersize=7)
         lines!(ax, ens_gmt[:], [mean_coefs[mon, mode, 2].*x.+mean_coefs[mon, mode, 1] for x in ens_gmt[:]], color=:black, linewidth=4)
+
+        # ens_mean_119 = mean(ens_projts_119[mode, mon:12:end, :], dims=2)
+        # scatter!(ax, ens_gmt_119[:], ens_mean_119[:], color=:brown, markersize=7)
+        # lines!(ax, ens_gmt_119[:], [mean_coefs_119[mon, mode, 2].*x.+mean_coefs_119[mon, mode, 1] for x in ens_gmt_119[:]], color=:brown, linewidth=4)
     end
-    save("figs/jan_mean_fits_10_modes_rcp45.png", fig)
+    # save("figs/jan_mean_fits_10_modes_ssp_comparison.png", fig)
     display(fig)
 end 
 
 #var fits
+#needs: vars, num_ens_members, var_coefs :: after an emulator has been trained
+
+var_coefs, vars = get_var_coefs(ens_projts, ens_gmt, mean_coefs; return_vars=true)
+var_coefs_119, vars_119 = get_var_coefs(ens_projts_119, ens_gmt_119, mean_coefs_119; return_vars=true)
+
+
 begin
     fig = Figure(resolution=(2000, 1000))
     # ax = Axis(fig[1,1])
@@ -61,13 +111,17 @@ begin
         col_index = (mode - 1) % 5 + 1
         ax = Axis(fig[row_index, col_index], title="std for mode $mode")
         for i in 1:num_ens_members
-            scatter!(ax, ens_gmt[:], sqrt.(vars[mon,mode,i,:]), markersize=7, alpha=0.5) 
+            scatter!(ax, ens_gmt[:], sqrt.(vars[mon,mode,i,:]), markersize=7, alpha=0.5, color=:red)
+            scatter!(ax, ens_gmt_119[:], sqrt.(vars_119[mon,mode,i,:]), markersize=7, alpha=0.5, color=:blue)
+            # scatter!(ax, ens_gmt[:], (vars[mon,mode,i,:]), markersize=7, alpha=0.5) 
         end
         ens_mean = sqrt.(mean(dropdims(vars[mon:12:end, mode, :, :], dims=1), dims=1))
+        # ens_mean = (mean(dropdims(vars[mon:12:end, mode, :, :], dims=1), dims=1))
         scatter!(ax, ens_gmt[:], ens_mean[:], color=:black, markersize=7)
         lines!(ax, ens_gmt[:], sqrt.([var_coefs[mon, mode, 2].*x.+var_coefs[mon, mode, 1] for x in ens_gmt[:]]), color=:black, linewidth=4)
+        # lines!(ax, ens_gmt[:], ([var_coefs[mon, mode, 2].*x.+var_coefs[mon, mode, 1] for x in ens_gmt[:]]), color=:black, linewidth=4)
     end
-    save("figs/jan_var_fits_10_modes_rcp45.png", fig)
+    # save("figs/jan_var_fits_10_modes_ssp_comparison.png", fig)
     display(fig)
 end 
 
@@ -79,7 +133,7 @@ begin
         for j in 1:5
             ax = Axis(fig[i,j])
             x = hcat(fill(1., length(ens_gmt)), ens_gmt[:])
-            y = covs[d+i,j,mon,:] #CHANGE HERE for corrs/covs
+            y = covs[d+i,j,mon,:] #CHANGE HERE for corrs/covs # also it's lookin at the non-symmetrical part: covariance btw modes of diff months
             scatter!(ax, ens_gmt[:], y, color=:orange, alpha=0.5) 
             fits = x \ y
             # print(typeof(fit))
@@ -87,7 +141,7 @@ begin
             # lines!(ax, ens_gmt[:], [chol_coefs[month, i, j, 2].*x.+chol_coefs[month, i, j, 1] for x in ens_gmt[:]], color=:black, linewidth=3)
         end
     end
-    save("figs/jan_cov_fits_rcp45.png", fig)
+    save("figs/jan_cov_fits_ssp585.png", fig)
     display(fig)
 end
 
