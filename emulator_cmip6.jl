@@ -6,7 +6,7 @@ include("emulator_util.jl")
 
 #################### ok let's test it out for real
 
-#get a sample gmt list
+#get a sample gmt list and the latvec to be used later on
 scenario = "ssp585"
 file3 = "/net/fs06/d3/mgeo/CMIP6/interim/$(scenario)/tas/r$(1)i1p1f1_$(scenario)_tas.nc"
 ts3 = ncData(file3, "tas") 

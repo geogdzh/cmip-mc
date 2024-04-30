@@ -10,14 +10,14 @@ ens_ind = 8
 for ens_ind in 1:50
     println(ens_ind)
     filehead = "/net/fs06/d3/mgeo/CMIP6/interim/"
-    filetail = "$(scenario)/tas/r$(ens_ind)i1p1f1_$(scenario)_tas.nc"
+    filetail = "$(scenario)/pr/r$(ens_ind)i1p1f1_$(scenario)_pr.nc"
     file = filehead * filetail
 
-    tas = ncData(file, "tas")
+    pr = ncData(file, "pr")
     # tas.timevec
     # timeseries = month_to_year_avg(weighted_avg(tas))
 
-    println(count_nan(tas.data)  )
+    println(count_nan(pr.data)  )
 end
 
 lines(timeseries)
@@ -86,3 +86,78 @@ using NCDatasets
 ds = Dataset(file)
 
 ncgen(file, "samplepr.jl")
+
+hfile = h5open("data/temp_basis_1000d.hdf5")
+temp_basis = read(hfile, "basis")
+close(hfile)
+
+hfile = h5open("data/temp_precip_basis_1000d.hdf5")
+temp_precip_basis = read(hfile, "basis")
+close(hfile)
+
+temp_basis == temp_precip_basis[1:M*N, :]
+
+
+#ok, so it has to be trained together
+
+
+hfile = h5open("data/temp_precip/ens_vars_withpr_ssp119.hdf5", "r")
+ens_means_pr_20 = read(hfile, "ens_means_pr_20")
+ens_means_pr_100 = read(hfile, "ens_means_pr_100")  
+ens_vars_pr_20 = read(hfile, "ens_vars_pr_20")
+ens_vars_pr_100 = read(hfile, "ens_vars_pr_100")
+close(hfile)
+
+hfile = h5open("data/temp_precip/ens_vars_withpr_ssp585.hdf5", "r")
+b_ens_means_pr_20 = read(hfile, "ens_means_pr_20")
+b_ens_means_pr_100 = read(hfile, "ens_means_pr_100")  
+b_ens_vars_pr_20 = read(hfile, "ens_vars_pr_20")
+b_ens_vars_pr_100 = read(hfile, "ens_vars_pr_100")
+close(hfile)
+
+heatmap(b_ens_vars_pr_20[:,:,401])
+ens_vars_pr_20[:,:,4] == b_ens_vars_pr_20[:,:,4]
+
+
+#
+hfile = h5open("data/temp_precip/gaussian_emulator_withpr_ssp585_200d.hdf5", "r")
+mean_coefs = read(hfile, "mean_coefs")
+chol_coefs = read(hfile, "chol_coefs")
+basis = read(hfile, "basis")
+close(hfile)
+
+
+# hfile = h5open("data/temp_only/vars_$(scenario)_50ens.hdf5", "r") #this is the actual ensemble variance of the CMIP model
+# true_var_temp = read(hfile, "true_var")
+# num_ens_members = read(hfile, "num_ens_members")
+# true_ens_gmt = read(hfile, "true_ens_gmt")
+# true_ens_mean_temp = read(hfile, "true_ens_mean")[:,:,:,1] #NEW!
+# close(hfile)
+
+# hfile = h5open("data/temp_precip/vars_pr_$(scenario)_50ens.hdf5", "r") #this is the actual ensemble variance of the CMIP model
+# true_var_pr = read(hfile, "true_var")
+# # num_ens_members = read(hfile, "num_ens_members")
+# # true_ens_gmt = read(hfile, "true_ens_gmt")
+# true_ens_mean_pr = read(hfile, "true_ens_mean")[:,:,:,1] #NEW!
+# close(hfile)
+
+
+# hfile = h5open("data/temp_precip/ens_vars_withpr_$(scenario).hdf5", "r")
+# ens_means_pr_20 = read(hfile, "ens_means_pr_20")
+# ens_means_pr_100 = read(hfile, "ens_means_pr_100")  
+# ens_vars_pr_20 = read(hfile, "ens_vars_pr_20")
+# ens_vars_pr_100 = read(hfile, "ens_vars_pr_100")
+# ens_means_temp_20 = read(hfile, "ens_means_tas_20")
+# ens_means_temp_100 = read(hfile, "ens_means_tas_100")  
+# ens_vars_temp_20 = read(hfile, "ens_vars_tas_20")
+# ens_vars_temp_100 = read(hfile, "ens_vars_tas_100")
+# close(hfile)
+
+
+hfile = h5open("data/temp_precip/training_data_withpr_ssp585_20d_49ens.hdf5")
+projts_20 = read(hfile, "projts")
+ens_gmt_20 = read(hfile, "ens_gmt")
+close(hfile)
+
+size(projts_20)
+projts_20[:,:,1]

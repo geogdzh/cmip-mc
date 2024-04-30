@@ -1,5 +1,5 @@
 ## load the emulator
-hfile = h5open("data/gaussian_emulator_ssp585_20d.hdf5", "r")
+hfile = h5open("data/temp_precip/gaussian_emulator_withpr_ssp585_20d.hdf5", "r")
 mean_coefs = read(hfile, "mean_coefs")
 chol_coefs = read(hfile, "chol_coefs")
 basis = read(hfile, "basis")
@@ -7,14 +7,14 @@ num_ens_members = read(hfile, "num_ens_members")
 ens_gmt = read(hfile, "ens_gmt")
 close(hfile)
 
-hfile = h5open("data/training_data_ssp585_20d_49ens.hdf5", "r")
+hfile = h5open("data/temp_precip/training_data_withpr_ssp585_20d_49ens.hdf5", "r")
 ens_projts = read(hfile, "projts")[1:d, :, :]
 # ens_gmt = read(hfile, "ens_gmt")
 # num_ens_members = read(hfile, "num_ens_members")
 close(hfile)
 
 
-hfile = h5open("data/gaussian_emulator_ssp119_20d.hdf5", "r")
+hfile = h5open("data/temp_precip/gaussian_emulator_withpr_ssp119_20d.hdf5", "r")
 mean_coefs_119 = read(hfile, "mean_coefs")
 chol_coefs_119 = read(hfile, "chol_coefs")
 basis_119 = read(hfile, "basis")
@@ -22,7 +22,7 @@ num_ens_members_119 = read(hfile, "num_ens_members")
 ens_gmt_119 = read(hfile, "ens_gmt")
 close(hfile)
 
-hfile = h5open("data/training_data_ssp119_20d_49ens.hdf5", "r")
+hfile = h5open("data/temp_precip/training_data_withpr_ssp119_20d_49ens.hdf5", "r")
 ens_projts_119 = read(hfile, "projts")[1:d, :, :]
 # ens_gmt = read(hfile, "ens_gmt")
 # num_ens_members = read(hfile, "num_ens_members")
@@ -33,7 +33,7 @@ begin
     fig = Figure(resolution=(2000, 2000))
     ax = Axis(fig[1,1])
     lines!(ax, ens_gmt[:])
-    lines!(ax, ens_gmt_119[:])
+    # lines!(ax, ens_gmt_119[:])
     display(fig)
 end
 

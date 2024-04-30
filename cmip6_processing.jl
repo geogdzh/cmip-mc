@@ -223,12 +223,4 @@ for ens_ind in 1:50
 
     close(ds)
 
-    ######
-
-    # hfile = h5open("/net/fs06/d3/mgeo/CMIP6/processed/historical/r$(ens_ind)i1p1f1_historical_tas.h5", "w")
-    # write(hfile, "tas", fulldata)
-    # write(hfile, "time", fulltime) #this DOES NOT work properly. to be fixed later
-    # write(hfile, "lat", latvec)
-    # write(hfile, "lon", lonvec)
-    # close(hfile)
 end
