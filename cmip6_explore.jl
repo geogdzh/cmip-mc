@@ -161,3 +161,26 @@ close(hfile)
 
 size(projts_20)
 projts_20[:,:,1]
+
+hfile = h5open("data/process/test_emulator_withpr_ssp585_20d.hdf5", "r") #this is to test the new chol/cov offloading
+# mean_coefs = read(hfile, "mean_coefs")
+chol_coefs = read(hfile, "chol_coefs")
+basis = read(hfile, "basis")
+close(hfile)
+
+hfile = h5open("data/temp_precip/gaussian_emulator_withpr_ssp585_20d.hdf5", "r")
+mean_coefs = read(hfile, "mean_coefs")
+old_chol_coefs = read(hfile, "chol_coefs")
+old_basis = read(hfile, "basis")
+close(hfile)
+
+chol_coefs == old_chol_coefs
+basis == old_basis
+
+# looks like new method works just fine!
+
+hfile = h5open("data/process/chols_ssp585_1000d.hdf5", "r")
+chols = read(hfile, "chols_251")
+D = read(hfile, "D")
+num_years  = read(hfile, "num_years")
+close(hfile)

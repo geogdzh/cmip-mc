@@ -1,4 +1,4 @@
-using Statistics, Distributions, LinearAlgebra
+using Statistics, Distributions, LinearAlgebra, Polynomials
 
 ### data functions
 function get_gmt_list(ts::ncData)
@@ -14,72 +14,128 @@ end
 
 
 ### training functions
-function get_mean_coefs(ens_projts, ens_gmt)
+function get_mean_coefs(ens_projts, ens_gmt; degree=1)
     d, ts, num_ens_members = size(ens_projts)
-    mean_coefs = zeros((12, d, 2))
+    mean_coefs = zeros((12, d, degree+1))
     for i in 1:12
         y = ens_projts[:,i:12:end,1] 
         for j in 2:num_ens_members
             y = hcat(y, ens_projts[:,i:12:end,j])
         end
         for j in 1:d   
-            A1 = fill(1., length(ens_gmt)*num_ens_members)
-            A2 = repeat(ens_gmt', num_ens_members)
-            A = hcat(A1, A2)
-            b = y[j,:]
-            mean_coefs[i, j, :] = A \ b
+            if degree == 1
+                A1 = fill(1., length(ens_gmt)*num_ens_members)
+                A2 = repeat(ens_gmt', num_ens_members)
+                A = hcat(A1, A2)
+                b = y[j,:]
+                mean_coefs[i, j, :] = A \ b
+            else
+                mean_coefs[i, j, :] =  Polynomials.fit(repeat(ens_gmt', num_ens_members)[:], y[j,:][:], degree)[:]
+            end
         end
     end
     return mean_coefs
 end
 
-function gmt_cov(ens_projts, ens_gmt; detrend=false,  mean_coefs=nothing, corrs=false)
-    d = size(ens_projts)[1]
+function gmt_cov(ens_projts, ens_gmt, offloading_tag; detrend=false,  mean_coefs=nothing, corrs=false)
+    D = size(ens_projts)[1]*2
     num_years = length(ens_gmt)
-    covs = zeros((2*d, 2*d, 12, num_years))
-    for i in 1:12
-        proj1 = ens_projts[:,i:12:end,:] #this is all the jans, eg
-        proj2 = i==12 ? ens_projts[:,1:12:end,:] : ens_projts[:,i+1:12:end,:] #febs
-        if detrend
-            proj1 = proj1 .- (mean_coefs[i, :, 2].*ens_gmt .- mean_coefs[i, :, 1])
-            proj2 = i==12 ? proj2 .- (mean_coefs[1, :, 2].*ens_gmt .- mean_coefs[1, :, 1]) : proj2 .- (mean_coefs[i+1, :, 2].*ens_gmt .- mean_coefs[i+1, :, 1])
-        end
-        cat = vcat(proj1, proj2)
-        for j in 1:num_years
-            covs[:,:,i,j] = corrs==true ? cor(cat[:,j,:]; dims=2) : cov(cat[:,j,:]; dims=2)
+    wfile = corrs == true ? h5open("data/process/corrs_$(offloading_tag).hdf5", "w") : h5open("data/process/covs_$(offloading_tag).hdf5", "w")
+    write(wfile, "D", D)
+    write(wfile, "num_years", num_years)
+    for j in 1:num_years
+        covs = zeros((D, D, 12))
+        for i in 1:12
+            proj1 = ens_projts[:,i:12:end,:] #this is all the jans, eg
+            proj2 = i==12 ? ens_projts[:,1:12:end,:] : ens_projts[:,i+1:12:end,:] #all the febs
+            if detrend
+                proj1 = proj1 .- (mean_coefs[i, :, 2].*ens_gmt .- mean_coefs[i, :, 1])
+                proj2 = i==12 ? proj2 .- (mean_coefs[1, :, 2].*ens_gmt .- mean_coefs[1, :, 1]) : proj2 .- (mean_coefs[i+1, :, 2].*ens_gmt .- mean_coefs[i+1, :, 1])
+            end
+            cat = vcat(proj1, proj2)
+            
+            covs[:,:,i] = corrs==true ? cor(cat[:,j,:]; dims=2) : cov(cat[:,j,:]; dims=2)
         end    
+        corrs == true ? write(wfile, "corrs_$j", covs) : write(wfile, "covs_$j", covs)
     end
-    return covs
+    close(wfile)
 end
 
-function get_chol_coefs(covs, ens_gmt; return_chols=false)
-    D, D, num_months, num_years = size(covs)
-    # d = Int(d/2) 
-    chols = zeros((D, D, num_months, num_years)) #raising errors for array size
-    for i in 1:12 #offload years adn months sep
-        for j in 1:num_years
-            # print(i, " ", j, "\n")
-            sc = covs[:,:,i,j]
+function get_chols(offloading_tag)
+    hfile = h5open("data/process/covs_$(offloading_tag).hdf5", "r")
+    D = read(hfile, "D")
+    num_years = read(hfile, "num_years")
+    wfile = h5open("data/process/chols_$(offloading_tag).hdf5", "w")
+    for j in 1:num_years
+        # println("working on cholesky decomposition for year $j")
+        # flush(stdout)
+        chols = zeros((D, D, 12))
+        for i in 1:12 
+            covs = read(hfile, "covs_$j")
+            sc = covs[:,:,i]
             ll, vv = eigen(sc)
             sc = sc + sqrt(eps(ll[end])) .* I
-            chols[:,:,i,j] = cholesky(sc).U
+            chols[:,:,i] = cholesky(sc).U
         end
+        write(wfile, "chols_$j", chols)
     end
-    chol_coefs = zeros((12, D, D, 2))
+    # println("done with cholesky decompositions")
+    write(wfile, "num_years", num_years)
+    write(wfile, "D", D)
+    close(wfile)
+    close(hfile)
+end
+
+# function get_chol_coefs(ens_gmt, offloading_tag)
+#     hfile = h5open("data/process/chols_$(offloading_tag).hdf5", "r")
+#     num_years = read(hfile, "num_years")
+#     D = read(hfile, "D")
+#     chol_coefs = zeros((12, D, D, 2)) 
+#     for i in 1:12
+#         println("working on chol_coefs for month $i")
+#         flush(stdout)
+#         for j in 1:D #(is already being done separately for each cell of matrix, only integrating over the years)
+#             for k in 1:D
+#                 y = [read(hfile, "chols_$n")[j,k,i] for n in 1:num_years] #maybe this isn't the most efficient?? 
+#                 A1 = fill(1., num_years)
+#                 A2 = ens_gmt'
+#                 A = hcat(A1, A2)
+#                 chol_coefs[i, j, k, :] = A \ y
+#             end
+#         end
+#     end
+#     println("done with chol_coefs")
+#     close(hfile)
+#     return chol_coefs
+# end
+
+function get_chol_coefs(ens_gmt, offloading_tag)
+    hfile = h5open("data/process/chols_$(offloading_tag).hdf5", "r")
+    num_years = read(hfile, "num_years")
+    D = read(hfile, "D")
+    chol_coefs = zeros((12, D, D, 2)) 
+
+    A1 = fill(1., num_years)
+    A2 = ens_gmt'
+    A = hcat(A1, A2)
     for i in 1:12
-        for j in 1:D #can also be done sep
-            for k in 1:D
-                y = [chols[j,k,i,n] for n in 1:num_years]
-                A1 = fill(1., num_years)
-                A2 = ens_gmt'
-                A = hcat(A1, A2)
+        println("working on chol_coefs for month $i")
+        flush(stdout)
+        for j in 1:D #(is already being done separately for each cell of matrix, only integrating over the years)
+            for k in 1:D #ok well for one they're all upper/lower triangular so i don't need to run this for half the entries. it's gonna be zero
+                println("we're at $j, $k")
+                flush(stdout)
+                y = zeros(num_years)
+                for n in 1:num_years
+                    y[n] = read(hfile, "chols_$n")[j,k,i]
+                end
+                # y = [read(hfile, "chols_$n")[j,k,i] for n in 1:num_years] #I think this must be the issue
                 chol_coefs[i, j, k, :] = A \ y
             end
         end
     end
-    if return_chols
-        return chol_coefs, chols
-    end
+    println("done with chol_coefs")
+    close(hfile)
     return chol_coefs
 end
 
@@ -91,8 +147,8 @@ function get_cov(gmt, chol_coefs)
     D = size(chol_coefs)[2]
     covs = zeros((D, D, 12))
     for i in 1:12
-        L = chol_coefs[i, :, :, 2] .* gmt .+ chol_coefs[i, :, :, 1]
-        covs[:,:,i] = L'*L
+        L = chol_coefs[i, :, :, 2] .* gmt .+ chol_coefs[i, :, :, 1] #so technically this is U
+        covs[:,:,i] = L'*L #but this is consistent with that 
     end
     return covs
 end

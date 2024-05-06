@@ -11,7 +11,7 @@ using_precip = true
 hfile = using_precip ? h5open("data/temp_precip/temp_precip_basis_1000d.hdf5", "r") : h5open("data/only_temp/temp_basis_1000d.hdf5", "r") #this basis is calculated from just one ens member
 basis = read(hfile, "basis")
 close(hfile)
-d = 20 #size(basis)[2]
+d = 1000 #size(basis)[2]
 basis = basis[:, 1:d]
 
 # scenario = "ssp119"
