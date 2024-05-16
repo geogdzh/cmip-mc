@@ -15,8 +15,12 @@ end
 
 ### training functions
 function get_mean_coefs(ens_projts, ens_gmt; degree=1)
+    # takes in the ensemble of projts and the ensemble MEAN gmt
     d, ts, num_ens_members = size(ens_projts)
     mean_coefs = zeros((12, d, degree+1))
+    A1 = fill(1., length(ens_gmt)*num_ens_members)
+    A2 = repeat(ens_gmt', num_ens_members)
+    A = hcat(A1, A2)
     for i in 1:12
         y = ens_projts[:,i:12:end,1] 
         for j in 2:num_ens_members
@@ -24,12 +28,9 @@ function get_mean_coefs(ens_projts, ens_gmt; degree=1)
         end
         for j in 1:d   
             if degree == 1
-                A1 = fill(1., length(ens_gmt)*num_ens_members)
-                A2 = repeat(ens_gmt', num_ens_members)
-                A = hcat(A1, A2)
                 b = y[j,:]
                 mean_coefs[i, j, :] = A \ b
-            else
+            else #fix this later
                 mean_coefs[i, j, :] =  Polynomials.fit(repeat(ens_gmt', num_ens_members)[:], y[j,:][:], degree)[:]
             end
         end
@@ -59,6 +60,40 @@ function gmt_cov(ens_projts, ens_gmt, offloading_tag; detrend=false,  mean_coefs
         corrs == true ? write(wfile, "corrs_$j", covs) : write(wfile, "covs_$j", covs)
     end
     close(wfile)
+end
+
+# the ORIGINAL METHOD that does both
+function get_chol_coefs(ens_gmt, offloading_tag; return_chols=false, offload=false)
+    hfile = h5open("data/process/covs_$(offloading_tag).hdf5", "r")
+    D = read(hfile, "D")
+    num_years = read(hfile, "num_years")
+    # NEED TO ADD IMPLEMENTATION FOR OFFLOAD
+    chols = zeros((D, D, 12, num_years)) #raising errors for array size
+    for i in 1:12
+        for j in 1:num_years
+            covs = read(hfile, "covs_$j")
+            sc = covs[:,:,i]
+            ll, vv = eigen(sc)
+            sc = sc + sqrt(eps(ll[end])) .* I
+            chols[:,:,i,j] = cholesky(sc).U
+        end
+    end
+    chol_coefs = zeros((12, D, D, 2))
+    for i in 1:12
+        for j in 1:D 
+            for k in 1:D
+                y = [chols[j,k,i,n] for n in 1:num_years]
+                A1 = fill(1., num_years)
+                A2 = ens_gmt'
+                A = hcat(A1, A2)
+                chol_coefs[i, j, k, :] = A \ y
+            end
+        end
+    end
+    if return_chols
+        return chol_coefs, chols
+    end
+    return chol_coefs
 end
 
 function get_chols(offloading_tag)
@@ -109,35 +144,35 @@ end
 #     return chol_coefs
 # end
 
-function get_chol_coefs(ens_gmt, offloading_tag)
-    hfile = h5open("data/process/chols_$(offloading_tag).hdf5", "r")
-    num_years = read(hfile, "num_years")
-    D = read(hfile, "D")
-    chol_coefs = zeros((12, D, D, 2)) 
+# function get_chol_coefs(ens_gmt, offloading_tag) # NEED TO MERGE THIS WITH ABOVE
+#     hfile = h5open("data/process/chols_$(offloading_tag).hdf5", "r")
+#     num_years = read(hfile, "num_years")
+#     D = read(hfile, "D")
+#     chol_coefs = zeros((12, D, D, 2)) 
 
-    A1 = fill(1., num_years)
-    A2 = ens_gmt'
-    A = hcat(A1, A2)
-    for i in 1:12
-        println("working on chol_coefs for month $i")
-        flush(stdout)
-        for j in 1:D #(is already being done separately for each cell of matrix, only integrating over the years)
-            for k in 1:D #ok well for one they're all upper/lower triangular so i don't need to run this for half the entries. it's gonna be zero
-                println("we're at $j, $k")
-                flush(stdout)
-                y = zeros(num_years)
-                for n in 1:num_years
-                    y[n] = read(hfile, "chols_$n")[j,k,i]
-                end
-                # y = [read(hfile, "chols_$n")[j,k,i] for n in 1:num_years] #I think this must be the issue
-                chol_coefs[i, j, k, :] = A \ y
-            end
-        end
-    end
-    println("done with chol_coefs")
-    close(hfile)
-    return chol_coefs
-end
+#     A1 = fill(1., num_years)
+#     A2 = ens_gmt'
+#     A = hcat(A1, A2)
+#     for i in 1:12
+#         println("working on chol_coefs for month $i")
+#         flush(stdout)
+#         for j in 1:D #(is already being done separately for each cell of matrix, only integrating over the years)
+#             for k in 1:D #ok well for one they're all upper/lower triangular so i don't need to run this for half the entries. it's gonna be zero
+#                 println("we're at $j, $k")
+#                 flush(stdout)
+#                 y = zeros(num_years)
+#                 for n in 1:num_years
+#                     y[n] = read(hfile, "chols_$n")[j,k,i]
+#                 end
+#                 # y = [read(hfile, "chols_$n")[j,k,i] for n in 1:num_years] #I think this must be the issue
+#                 chol_coefs[i, j, k, :] = A \ y
+#             end
+#         end
+#     end
+#     println("done with chol_coefs")
+#     close(hfile)
+#     return chol_coefs
+# end
 
 
 

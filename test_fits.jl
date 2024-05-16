@@ -1,5 +1,5 @@
 ## load the emulator
-hfile = h5open("data/temp_precip/gaussian_emulator_withpr_ssp585_20d.hdf5", "r")
+hfile = h5open("data/temp_precip/gaussian_emulator_withpr_ssp585_200d.hdf5", "r")
 mean_coefs = read(hfile, "mean_coefs")
 chol_coefs = read(hfile, "chol_coefs")
 basis = read(hfile, "basis")
@@ -7,27 +7,34 @@ num_ens_members = read(hfile, "num_ens_members")
 ens_gmt = read(hfile, "ens_gmt")
 close(hfile)
 
-hfile = h5open("data/temp_precip/training_data_withpr_ssp585_20d_49ens.hdf5", "r")
+hfile = h5open("data/temp_precip/training_data_withpr_ssp585_200d_49ens.hdf5", "r")
 ens_projts = read(hfile, "projts")[1:d, :, :]
 # ens_gmt = read(hfile, "ens_gmt")
 # num_ens_members = read(hfile, "num_ens_members")
 close(hfile)
 
 
-hfile = h5open("data/temp_precip/gaussian_emulator_withpr_ssp119_20d.hdf5", "r")
-mean_coefs_119 = read(hfile, "mean_coefs")
-chol_coefs_119 = read(hfile, "chol_coefs")
-basis_119 = read(hfile, "basis")
-num_ens_members_119 = read(hfile, "num_ens_members")
+# hfile = h5open("data/temp_precip/gaussian_emulator_withpr_ssp119_20d.hdf5", "r")
+# mean_coefs_119 = read(hfile, "mean_coefs")
+# # chol_coefs_119 = read(hfile, "chol_coefs")
+# # basis_119 = read(hfile, "basis")
+# num_ens_members_119 = read(hfile, "num_ens_members")
+# ens_gmt_119 = read(hfile, "ens_gmt")
+# close(hfile)
+
+# hfile = h5open("data/temp_precip/training_data_withpr_ssp119_20d_49ens.hdf5", "r")
+# ens_projts_119 = read(hfile, "projts")[1:d, :, :]
+# # ens_gmt = read(hfile, "ens_gmt")
+# # num_ens_members = read(hfile, "num_ens_members")
+# close(hfile)
+
+hfile = h5open("data/ssp119_gmts_50ens.hdf5", "r")
 ens_gmt_119 = read(hfile, "ens_gmt")
 close(hfile)
 
-hfile = h5open("data/temp_precip/training_data_withpr_ssp119_20d_49ens.hdf5", "r")
-ens_projts_119 = read(hfile, "projts")[1:d, :, :]
-# ens_gmt = read(hfile, "ens_gmt")
-# num_ens_members = read(hfile, "num_ens_members")
+hfile = h5open("data/temp_precip/projts_withpr_ssp119_200d_50ens.hdf5", "r")
+projts_119 = read(hfile, "projts")
 close(hfile)
-
 
 begin
     fig = Figure(resolution=(2000, 2000))

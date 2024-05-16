@@ -9,7 +9,8 @@ scenario = scenarios[1]
 ens_ind = 8
 for ens_ind in 1:50
     println(ens_ind)
-    filehead = "/net/fs06/d3/mgeo/CMIP6/interim/"
+    # filehead = "/net/fs06/d3/mgeo/CMIP6/interim/"
+    filehead = "~/urop_2022/cmip/CMIP6/interim/"
     filetail = "$(scenario)/pr/r$(ens_ind)i1p1f1_$(scenario)_pr.nc"
     file = filehead * filetail
 

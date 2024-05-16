@@ -11,7 +11,7 @@ using_precip = true
 hfile = using_precip ? h5open("data/temp_precip/temp_precip_basis_1000d.hdf5", "r") : h5open("data/only_temp/temp_basis_1000d.hdf5", "r") #this basis is calculated from just one ens member
 basis = read(hfile, "basis")
 close(hfile)
-d = 1000 #size(basis)[2]
+d = 200
 basis = basis[:, 1:d]
 
 # scenario = "ssp119"
@@ -19,10 +19,11 @@ scenario = "ssp585"
 
 ############### get training data for the linear fits 
 num_ens_members = 50 # number of model runs used to train the emulator
-projts = using_precip ? zeros((d, (L1+L2), num_ens_members)) : zeros((d, (L1+L2), num_ens_members)) 
+projts = zeros((d, (L1+L2), num_ens_members)) 
 ens_gmt = zeros((num_ens_members, Int((L1+L2)/12))) #GMT in any case
 
-file_head = "/net/fs06/d3/mgeo/CMIP6/interim/"
+# file_head = "/net/fs06/d3/mgeo/CMIP6/interim/"
+file_head = "/Users/masha/urop_2022/cmip/CMIP6/interim/"
 errors = []
 for i in 1:num_ens_members#ProgressBar(1:num_ens_members)
     try
@@ -67,3 +68,6 @@ write(hfile, "projts", projts)
 write(hfile, "ens_gmt", ens_gmt)
 write(hfile, "num_ens_members", num_ens_members)
 close(hfile)
+
+
+################# an alternative to assemble the training data from existing files... :
