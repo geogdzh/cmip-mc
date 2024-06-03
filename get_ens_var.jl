@@ -3,7 +3,7 @@ include("utils.jl")
 include("eof_util.jl")
 include("emulator_util.jl") 
 
-scenarios = ["historical", "ssp585", "ssp370", "ssp245", "ssp126", "ssp119"]
+scenarios = ["historical", "ssp585", "ssp245", "ssp119"]
 
 # file3 = "/net/fs06/d3/mgeo/CMIP6/interim/ssp585/tas/r1i1p1f1_ssp585_tas.nc"
 # ts3 = ncData(file3, "tas") 
@@ -12,12 +12,12 @@ scenarios = ["historical", "ssp585", "ssp370", "ssp245", "ssp126", "ssp119"]
 # latvec = ts3.latvec
 
 
-function get_ens_vars(d, true_ens_gmt; get_means=false) # OR the means lol
+function get_ens_vars(d, true_ens_gmt; get_means=false, k=1) # OR the means lol
     M = 192
     N = 96
     L = 1032
     hfile = h5open("data/temp_precip/gaussian_emulator_withpr_ssp585_$(d)d.hdf5", "r")
-    mean_coefs = read(hfile, "mean_coefs")
+    mean_coefs = read(hfile, "mean_coefs_$(k)")
     chol_coefs = read(hfile, "chol_coefs")
     basis = read(hfile, "basis")
     close(hfile)
@@ -27,7 +27,13 @@ function get_ens_vars(d, true_ens_gmt; get_means=false) # OR the means lol
         println("working on year $(m)")
         if get_means
             for n in 1:12
-                data = back_to_data(mean_coefs[n,:,2].*true_ens_gmt[m] .+ mean_coefs[n, :, 1], basis)
+                if k==1 #MAKE THIS SMARTER lol
+                    data = back_to_data(mean_coefs[n,:,2].*true_ens_gmt[m] .+ mean_coefs[n, :, 1], basis)
+                elseif k==2
+                    data = back_to_data(mean_coefs[n,:,2].*true_ens_gmt[m] .+ mean_coefs[n, :, 1] .+ mean_coefs[n,:,3].*true_ens_gmt[m].^2, basis)
+                else
+                    data = back_to_data(mean_coefs[n,:,2].*true_ens_gmt[m] .+ mean_coefs[n, :, 1] .+ mean_coefs[n,:,3].*true_ens_gmt[m].^2 .+ mean_coefs[n,:,4].*true_ens_gmt[m].^3, basis)
+                end
                 ens_vars_tas[:,:,(m-1)*12+n] = shape_data(data[1:M*N,:], M, N)
                 ens_vars_pr[:,:,(m-1)*12+n] = shape_data(data[M*N+1:end,:], M, N)
             end
@@ -44,39 +50,48 @@ function get_ens_vars(d, true_ens_gmt; get_means=false) # OR the means lol
     return ens_vars_tas, ens_vars_pr
 end
 
+# # test the differnt values of n
+# for scenario in scenarios[2:end] 
+#     println("working on $(scenario)")
+#     flush(stdout)
+#     #get the true gmt
+#     hfile = h5open("data/temp_only/vars_$(scenario)_50ens.hdf5", "r") #this is the actual ensemble variance of the CMIP model
+#     # true_var = read(hfile, "true_var") ## is this being used??? 
+#     num_ens_members = read(hfile, "num_ens_members")
+#     true_ens_gmt = read(hfile, "true_ens_gmt")
+#     # true_ens_mean = read(hfile, "true_ens_mean")[:,:,:,1] #NEW!
+#     close(hfile)
 
-for scenario in scenarios[3:end] #CHANGE BACK
+#     for d in [200] #CHANGE BACK
+#         println("working on $(d)")
+#         flush(stdout)
+#         ens_vars_tas, ens_vars_pr = get_ens_vars(d, true_ens_gmt)
+#         ens_means_tas, ens_means_pr = get_ens_vars(d, true_ens_gmt; get_means=true)
+#         hfile = h5open("data/temp_precip/ens_vars_withpr_$(scenario).hdf5", "cw")
+#         write(hfile, "ens_vars_tas_$(d)", ens_vars_tas)
+#         write(hfile, "ens_vars_pr_$(d)", ens_vars_pr)
+#         write(hfile, "ens_means_tas_$(d)", ens_means_tas)
+#         write(hfile, "ens_means_pr_$(d)", ens_means_pr)
+#         close(hfile)
+#     end
+
+# end
+
+# test the differnt values of k
+for scenario in scenarios[2:end] 
     println("working on $(scenario)")
     flush(stdout)
-    #get the true gmt
     hfile = h5open("data/temp_only/vars_$(scenario)_50ens.hdf5", "r") #this is the actual ensemble variance of the CMIP model
-    # true_var = read(hfile, "true_var")
     num_ens_members = read(hfile, "num_ens_members")
     true_ens_gmt = read(hfile, "true_ens_gmt")
-    # true_ens_mean = read(hfile, "true_ens_mean")[:,:,:,1] #NEW!
     close(hfile)
 
-    ens_vars_tas_20, ens_vars_pr_20 = get_ens_vars(20, true_ens_gmt)
-    ens_means_tas_20, ens_means_pr_20 = get_ens_vars(20, true_ens_gmt; get_means=true)
-    println("working on 20")
-    flush(stdout)
-    hfile = h5open("data/temp_precip/ens_vars_withpr_$(scenario).hdf5", "w")
-    write(hfile, "ens_vars_tas_20", ens_vars_tas_20)
-    write(hfile, "ens_vars_pr_20", ens_vars_pr_20)
-    write(hfile, "ens_means_tas_20", ens_means_tas_20)
-    write(hfile, "ens_means_pr_20", ens_means_pr_20)
-    close(hfile)
-    for d in [100]#, 200] #CHANGE BACK
-        println("working on $(d)")
-        flush(stdout)
-        ens_vars_tas, ens_vars_pr = get_ens_vars(d, true_ens_gmt)
-        ens_means_tas, ens_means_pr = get_ens_vars(d, true_ens_gmt; get_means=true)
-        hfile = h5open("data/temp_precip/ens_vars_withpr_$(scenario).hdf5", "r+")
-        write(hfile, "ens_vars_tas_$(d)", ens_vars_tas)
-        write(hfile, "ens_vars_pr_$(d)", ens_vars_pr)
-        write(hfile, "ens_means_tas_$(d)", ens_means_tas)
-        write(hfile, "ens_means_pr_$(d)", ens_means_pr)
+    d=200
+    for k in 1:3 
+        ens_means_tas, ens_means_pr = get_ens_vars(d, true_ens_gmt; get_means=true, k=k)
+        hfile = h5open("data/temp_precip/ens_vars_withpr_$(scenario).hdf5", "cw")
+        write(hfile, "ens_means_tas_k$(k)_new", ens_means_tas)
+        write(hfile, "ens_means_pr_k$(k)_new", ens_means_pr)
         close(hfile)
     end
-
 end
