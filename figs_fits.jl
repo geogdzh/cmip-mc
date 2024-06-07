@@ -53,7 +53,7 @@ end
 
 
 begin
-    fig = Figure(resolution=(2000, 1000))
+    fig = Figure(resolution=(1500, 750))
     for mode in 1:10
         row_index = (mode - 1) ÷ 5 + 1
         col_index = (mode - 1) % 5 + 1
@@ -64,7 +64,7 @@ begin
         # end
         hist!(ax, vec(year_ens_projts_119[mode,1:34,:]), bins=20, color=(:red, 0.5), label="before", normalization=:pdf)
         hist!(ax, vec(year_ens_projts_119[mode,35:end,:]), bins=20, color=(:blue, 0.5), label="after", normalization=:pdf)
-        if mode == 1
+        if mode == 5
             axislegend(ax, position=:lt)
         end
     end
@@ -77,30 +77,37 @@ end
 
 
 
-#mean fits #CHANGE THIS TO BE FOR THE WHOLE YEAR
+#mean fits 
 begin
-    fig = Figure(resolution=(2000, 1000))
-    # ax = Axis(fig[1,1])
+    fig = Figure(resolution=(1500, 750))
     mon = 1
-    # mode = 100
     for mode in 1:10
-        # ax = Axis(fig[mode,1])
         row_index = (mode - 1) ÷ 5 + 1
         col_index = (mode - 1) % 5 + 1
         ax = Axis(fig[row_index, col_index], title="Mode $mode")
         for i in 1:num_ens_members
-            scatter!(ax, ens_gmt[1:l1], ens_projts[mode, mon:12:L1, i], markersize=7, alpha=0.3, color=scenario_colors["historical"]) 
-            scatter!(ax, ens_gmt[l1+1:end], ens_projts[mode, L1+mon:12:end, i], markersize=7, alpha=0.3, color=scenario_colors["ssp585"]) 
-            scatter!(ax, ens_gmt_119[:], ens_projts_119[mode, mon:12:end, i], markersize=7, alpha=0.3, color=scenario_colors["ssp119"]) 
+            scatter!(ax, ens_gmt[1:l1], ens_projts[mode, mon:12:L1, i], markersize=5, alpha=0.3, color=scenario_colors["historical"], label="historical") 
+            scatter!(ax, ens_gmt[l1+1:end], ens_projts[mode, L1+mon:12:end, i], markersize=5, alpha=0.3, color=scenario_colors["ssp585"], label="ssp585") 
+            scatter!(ax, ens_gmt_119[:], ens_projts_119[mode, mon:12:end, i], markersize=5, alpha=0.3, color=scenario_colors["ssp119"], label= "ssp119")
+            # scatter!(ax, ens_gmt[1:l1], month_to_year_avg(ens_projts[mode, 1:L1, i]), markersize=5, alpha=0.3, color=scenario_colors["historical"]) 
+            # scatter!(ax, ens_gmt[l1+1:end], month_to_year_avg(ens_projts[mode, L1+1:end, i]), markersize=5, alpha=0.3, color=scenario_colors["ssp585"]) 
+            # scatter!(ax, ens_gmt_119[:], month_to_year_avg(ens_projts_119[mode, :, i]), markersize=5, alpha=0.3, color=scenario_colors["ssp119"]) 
+            if mode == 1 && i == 1
+                axislegend(ax, position=:rt)
+            end
         end
         ens_mean = mean(ens_projts[mode, mon:12:end, :], dims=2)
-        scatter!(ax, ens_gmt[:], ens_mean[:], color=:black, markersize=7)
-        lines!(ax, ens_gmt[:], [mean_coefs_1[mon, mode, 2].*x.+mean_coefs_1[mon, mode, 1] for x in ens_gmt[:]], color=:black, linewidth=4)
-        lines!(ax, ens_gmt[:], [mean_coefs_2[mon, mode, 3].*x.^2 .+ mean_coefs_2[mon, mode, 2].*x.+mean_coefs_2[mon, mode, 1] for x in ens_gmt[:]], color=:blue, linewidth=3)
+        scatter!(ax, ens_gmt[:], ens_mean[:], color=:black, markersize=6, label="ensemble mean")
+        lines!(ax, ens_gmt[:], [mean_coefs_1[mon, mode, 2].*x.+mean_coefs_1[mon, mode, 1] for x in ens_gmt[:]], color=:black, linewidth=3, label="linear fit")
+        lines!(ax, ens_gmt[:], [mean_coefs_2[mon, mode, 3].*x.^2 .+ mean_coefs_2[mon, mode, 2].*x.+mean_coefs_2[mon, mode, 1] for x in ens_gmt[:]], color=:blue, linewidth=3, label="quadratic fit")
 
-
+        if mode == 1
+            elems = [MarkerElement(color=:black, marker=:marker, markersize=6), LineElement(color=:black, linestyle=:solid, linewidth=3), LineElement(color=:blue, linestyle=:solid, linewidth=3)]
+            labels = ["ensemble\nmean", "linear fit", "quadratic fit"]
+            axislegend(ax, elems, labels, position=:lb)
+        end
     end
-    save("figs/jan_mean_fits_10_modes_ssp_comparison.png", fig)
+    # save("figs/jan_mean_fits_10_modes_ssp_comparison.png", fig)
     display(fig)
 end 
 
@@ -112,31 +119,32 @@ var_coefs_119, vars_119 = get_var_coefs(ens_projts_119, ens_gmt_119, mean_coefs_
 
 
 begin
-    fig = Figure(resolution=(2000, 1000))
-    # ax = Axis(fig[1,1])
+    fig = Figure(resolution=(1500, 750))
     mon = 1
-    # mode = 100
     for mode in 1:10
-        # ax = Axis(fig[mode,1])
         row_index = (mode - 1) ÷ 5 + 1
         col_index = (mode - 1) % 5 + 1
-        ax = Axis(fig[row_index, col_index], title="std for mode $mode")
+        ax = Axis(fig[row_index, col_index], title="Mode $mode")
         for i in 1:num_ens_members
-            scatter!(ax, ens_gmt[1:l1], sqrt.(vars[mon, mode, i, 1:l1]), markersize=7, alpha=0.3, color=scenario_colors["historical"]) 
-            scatter!(ax, ens_gmt[l1+1:end], sqrt.(vars[mon, mode, i, l1+1:end]), markersize=7, alpha=0.3, color=scenario_colors["ssp585"]) 
-            scatter!(ax, ens_gmt_119[:], sqrt.(vars_119[mon, mode, i, :]), markersize=7, alpha=0.3, color=scenario_colors["ssp119"])
-
-            # scatter!(ax, ens_gmt[:], sqrt.(vars[mon,mode,i,:]), markersize=7, alpha=0.5, color=:red)
-            # scatter!(ax, ens_gmt_119[:], sqrt.(vars_119[mon,mode,i,:]), markersize=7, alpha=0.5, color=:blue)
-            # scatter!(ax, ens_gmt[:], (vars[mon,mode,i,:]), markersize=7, alpha=0.5) 
+            scatter!(ax, ens_gmt[1:l1], sqrt.(vars[mon, mode, i, 1:l1]), markersize=5, alpha=0.3, color=scenario_colors["historical"], label="historical") 
+            scatter!(ax, ens_gmt[l1+1:end], sqrt.(vars[mon, mode, i, l1+1:end]), markersize=5, alpha=0.3, color=scenario_colors["ssp585"], label="ssp585") 
+            scatter!(ax, ens_gmt_119[:], sqrt.(vars_119[mon, mode, i, :]), markersize=5, alpha=0.3, color=scenario_colors["ssp119"], label="ssp119")
+            
+            if mode == 1 && i == 1
+                axislegend(ax, position=:rt)
+            end
         end
         ens_mean = sqrt.(mean(dropdims(vars[mon:12:end, mode, :, :], dims=1), dims=1))
-        # ens_mean = (mean(dropdims(vars[mon:12:end, mode, :, :], dims=1), dims=1))
         scatter!(ax, ens_gmt[:], ens_mean[:], color=:black, markersize=7)
-        lines!(ax, ens_gmt[:], sqrt.([var_coefs[mon, mode, 2].*x.+var_coefs[mon, mode, 1] for x in ens_gmt[:]]), color=:black, linewidth=4)
-        # lines!(ax, ens_gmt[:], ([var_coefs[mon, mode, 2].*x.+var_coefs[mon, mode, 1] for x in ens_gmt[:]]), color=:black, linewidth=4)
+        lines!(ax, ens_gmt[:], sqrt.([var_coefs[mon, mode, 2].*x.+var_coefs[mon, mode, 1] for x in ens_gmt[:]]), color=:black, linewidth=3)
+        
+        if mode == 2
+            elems = [MarkerElement(color=:black, marker=:marker, markersize=6), LineElement(color=:black, linestyle=:solid, linewidth=3)]
+            labels = ["ensemble\nmean", "linear fit"]
+            axislegend(ax, elems, labels, position=:rt)
+        end
     end
-    save("figs/jan_var_fits_10_modes_ssp_comparison.png", fig)
+    # save("figs/jan_var_fits_10_modes_ssp_comparison.png", fig)
     display(fig)
 end 
 

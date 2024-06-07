@@ -284,7 +284,7 @@ function get_var_coefs(ens_projts, ens_gmt, mean_coefs; return_vars=false)
         for j in 1:d
             b, m = mean_coefs[i, j, :]
             fits = repeat([m*x+b for x in ens_gmt]',num_ens_members)
-            vars = (y[j,:].-fits).^2
+            vars = (y[j,:].-fits).^2                                #vars calculated as squared difference from the line of best fit
             A1 = fill(1., length(ens_gmt)*num_ens_members)
             A2 = repeat(ens_gmt', num_ens_members)
             A = hcat(A1, A2)
