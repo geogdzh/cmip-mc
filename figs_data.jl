@@ -9,6 +9,9 @@ scenarios = ["historical", "ssp585", "ssp245", "ssp119"]
 scenario_colors = Dict("historical" => :red4, "ssp585" => :red, "ssp245" => :magenta3, "ssp119" => :indigo)
 M, N = 192, 96
 
+non_dim = false
+parent_folder =  non_dim ? "nondim" : "temp_precip"
+
 #get sample timevecs
 file_head = "/Users/masha/urop_2022/cmip/CMIP6/interim/"
 file3 = file_head*"ssp585/tas/r1i1p1f1_ssp585_tas.nc"
@@ -38,27 +41,27 @@ begin
 end
 
 # fig 2: show the basis
-hfile = h5open("data/temp_precip/temp_precip_basis_1000d.hdf5", "r")
+hfile = h5open("data/$(parent_folder)/temp_precip_basis_1000d.hdf5", "r")
 basis = read(hfile, "basis")
 close(hfile)
 
 #get the lines for the first basis modes
 
-basis_trends_history = zeros((L1, 49, 5, 1))
-basis_trends_future = zeros((L2, 50, 5, 3))
+basis_trends_history = zeros((L1, 49, 20, 1))
+basis_trends_future = zeros((L2, 50, 20, 3))
 
-hfile = h5open("data/temp_precip/projts_withpr_historical_200d_49ens.hdf5", "r")
+hfile = h5open("data/$(parent_folder)/projts_withpr_historical_200d_49ens.hdf5", "r")
 projts = read(hfile, "projts")
 close(hfile)
 # mean_projts = mean(projts, dims=3)[:,:,1]
-for i in 1:5
+for i in 1:20
     basis_trends_history[:,:,i,1] = projts[i,:,:]
 end
 for (j,scenario) in enumerate(scenarios[2:end]) #this except it doesn't really exist
     hfile = h5open("data/temp_precip/projts_withpr_$(scenario)_200d_50ens.hdf5", "r")
     projts = read(hfile, "projts")
     close(hfile)
-    for i in 1:5
+    for i in 1:20
         basis_trends_future[:,:,i,j] = projts[i,:,:]
     end
 end
@@ -68,17 +71,15 @@ end
 begin
     fig = Figure(resolution=(1500, 1000)) 
 #question here : should it be using uniform coloring? or each their own 
-# + do we neeed colorbars? 
 # + should we show yearly averages for the modes? or for one month?
-    for i in 1:3
-        ax = GeoAxis(fig[1,i], title="Mode $i", ylabel=(i==1 ? "Temperature" : ""))
+    for (n, i) in enumerate([x for x in 1:3]) #i in 1:3
+        ax = GeoAxis(fig[1,n], title="Mode $i", ylabel=(i==1 ? "Temperature" : ""))
         tmp = reshape(basis[1:M*N,i], (M, N))
         heatmap!(ax, lonvec2, latvec, tmp, colormap=:thermometer)
 
-        ex = Axis(fig[2,i], xlabel="Year", ylabel=(i==1 ? "Coefficient of mode (annual mean)" : ""), title="Mode $i")
+        ex = Axis(fig[2,n], xlabel="Year", ylabel=(i==1 ? "Coefficient of mode (annual mean)" : ""), title="Mode $i")
         for x in 1:49
             lines!(ex, time_history, month_to_year_avg(basis_trends_history[:,x,i,1]), color=scenario_colors["historical"], alpha=0.1, linestyle=:dot)
-            # scatter!(ex, time_history, basis_trends_history[:,x,i,1][1:12:end], color=scenario_colors["historical"], alpha=0.05)
         end
         mean_trend = month_to_year_avg(mean(basis_trends_history[:,:,i,1], dims=2))
         lines!(ex, time_history, mean_trend, color=scenario_colors["historical"], alpha=1, linestyle=:solid, linewidth=2, label="historical")
@@ -91,10 +92,25 @@ begin
         end
         axislegend(ex, position=:lb)
 
-        ax2 = GeoAxis(fig[3,i],  title="Mode $i", ylabel=(i==1 ? "Precipitation" : ""))
+        ax2 = GeoAxis(fig[3,n],  title="Mode $i", ylabel=(i==1 ? "Precipitation" : ""))
         tmp = reshape(basis[M*N+1:end,i], (M, N))
         heatmap!(ax2, lonvec2, latvec, tmp, colormap=:plum)
     end
     # save("figs/basis_modes.png", fig)
     display(fig)
 end
+
+
+#
+
+for i in 200:-1:1
+    fig = Figure(resolution=(1000,750))
+    ax = GeoAxis(fig[1,1], title="Mode $i")
+    tmp = reshape(basis[1:M*N,i], (M, N))
+    heatmap!(ax, lonvec2, latvec, tmp, colormap=:thermometer)
+    save("figs/modes_og/temp_mode_$i.png", fig)
+    # display(fig)
+end
+
+#modes 6 and 15 look vaguely enso-like
+

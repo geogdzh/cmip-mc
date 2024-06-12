@@ -11,12 +11,15 @@ scenarios = ["historical", "ssp585", "ssp245", "ssp119"]
 # M, N, L = size(ts3.data)
 # latvec = ts3.latvec
 
+non_dim = true
+parent_folder =  non_dim ? "nondim" : "temp_precip"
+
 
 function get_ens_vars(d, true_ens_gmt; get_means=false, k=1) # OR the means lol
     M = 192
     N = 96
     L = 1032
-    hfile = h5open("data/temp_precip/gaussian_emulator_withpr_ssp585_$(d)d.hdf5", "r")
+    hfile = h5open("data/$(parent_folder)/gaussian_emulator_withpr_ssp585_$(d)d.hdf5", "r")
     mean_coefs = read(hfile, "mean_coefs_$(k)")
     chol_coefs = read(hfile, "chol_coefs")
     basis = read(hfile, "basis")
@@ -50,38 +53,36 @@ function get_ens_vars(d, true_ens_gmt; get_means=false, k=1) # OR the means lol
     return ens_vars_tas, ens_vars_pr
 end
 
-# # test the differnt values of n
-# for scenario in scenarios[2:end] 
-#     println("working on $(scenario)")
-#     flush(stdout)
-#     #get the true gmt
-#     hfile = h5open("data/temp_only/vars_$(scenario)_50ens.hdf5", "r") #this is the actual ensemble variance of the CMIP model
-#     # true_var = read(hfile, "true_var") ## is this being used??? 
-#     num_ens_members = read(hfile, "num_ens_members")
-#     true_ens_gmt = read(hfile, "true_ens_gmt")
-#     # true_ens_mean = read(hfile, "true_ens_mean")[:,:,:,1] #NEW!
-#     close(hfile)
+# test the differnt values of n
+for scenario in scenarios[2:end] 
+    println("working on $(scenario)")
+    flush(stdout)
+    #get the true gmt
+    hfile = h5open("data/temp_only/vars_$(scenario)_50ens.hdf5", "r") 
+    num_ens_members = read(hfile, "num_ens_members")
+    true_ens_gmt = read(hfile, "true_ens_gmt")
+    close(hfile)
 
-#     for d in [200] #CHANGE BACK
-#         println("working on $(d)")
-#         flush(stdout)
-#         ens_vars_tas, ens_vars_pr = get_ens_vars(d, true_ens_gmt)
-#         ens_means_tas, ens_means_pr = get_ens_vars(d, true_ens_gmt; get_means=true)
-#         hfile = h5open("data/temp_precip/ens_vars_withpr_$(scenario).hdf5", "cw")
-#         write(hfile, "ens_vars_tas_$(d)", ens_vars_tas)
-#         write(hfile, "ens_vars_pr_$(d)", ens_vars_pr)
-#         write(hfile, "ens_means_tas_$(d)", ens_means_tas)
-#         write(hfile, "ens_means_pr_$(d)", ens_means_pr)
-#         close(hfile)
-#     end
+    for d in [200] #CHANGE BACK
+        println("working on $(d)")
+        flush(stdout)
+        ens_vars_tas, ens_vars_pr = get_ens_vars(d, true_ens_gmt)
+        ens_means_tas, ens_means_pr = get_ens_vars(d, true_ens_gmt; get_means=true)
+        hfile = h5open("data/$(parent_folder)/ens_vars_withpr_$(scenario).hdf5", "cw")
+        write(hfile, "ens_vars_tas_$(d)", ens_vars_tas)
+        write(hfile, "ens_vars_pr_$(d)", ens_vars_pr)
+        write(hfile, "ens_means_tas_$(d)", ens_means_tas)
+        write(hfile, "ens_means_pr_$(d)", ens_means_pr)
+        close(hfile)
+    end
 
-# end
+end
 
 # test the differnt values of k
 for scenario in scenarios[2:end] 
     println("working on $(scenario)")
     flush(stdout)
-    hfile = h5open("data/temp_only/vars_$(scenario)_50ens.hdf5", "r") #this is the actual ensemble variance of the CMIP model
+    hfile = h5open("data/temp_only/vars_$(scenario)_50ens.hdf5", "r") 
     num_ens_members = read(hfile, "num_ens_members")
     true_ens_gmt = read(hfile, "true_ens_gmt")
     close(hfile)
@@ -89,9 +90,9 @@ for scenario in scenarios[2:end]
     d=200
     for k in 1:3 
         ens_means_tas, ens_means_pr = get_ens_vars(d, true_ens_gmt; get_means=true, k=k)
-        hfile = h5open("data/temp_precip/ens_vars_withpr_$(scenario).hdf5", "cw")
-        write(hfile, "ens_means_tas_k$(k)_new", ens_means_tas)
-        write(hfile, "ens_means_pr_k$(k)_new", ens_means_pr)
+        hfile = h5open("data/$(parent_folder)/ens_vars_withpr_$(scenario).hdf5", "cw")
+        write(hfile, "ens_means_tas_k$(k)", ens_means_tas)
+        write(hfile, "ens_means_pr_k$(k)", ens_means_pr)
         close(hfile)
     end
 end

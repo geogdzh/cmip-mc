@@ -12,6 +12,9 @@ ts3 = ncData(file3, "tas")
 lonvec, latvec = ts3.lonvec[:], ts3.latvec[:]
 lonvec2 = lonvec .-180.
 
+non_dim = false
+parent_folder =  non_dim ? "nondim" : "temp_precip"
+
 
 ## generate statistics
 scenarios = ["historical", "ssp585", "ssp245", "ssp119"]
@@ -27,13 +30,13 @@ function calculate_rmse(numbers, variable, scenarios; rel_error=false, for_k=fal
     for scenario in scenarios[2:end]
         # once we have the emulator and have saved out the emulator ensemble vars/means etc; calculate the rmse compared to various scenarios
 
-        hfile = h5open("data/temp_precip/vars_$(variable)_$(scenario)_50ens.hdf5", "r")
+        hfile = h5open("data/$(parent_folder)/vars_$(variable)_$(scenario)_50ens.hdf5", "r") # true CMIP vars
         true_var = read(hfile, "true_var")
         true_ens_mean = read(hfile, "true_ens_mean")[:,:,:,1]
         close(hfile)
 
-        wfile = h5open("data/temp_precip/ens_vars_withpr_rmse_$(scenario)_updated.hdf5", "cw") #let's make this also include means
-        hfile = h5open("data/temp_precip/ens_vars_withpr_$(scenario).hdf5", "r") #emulator vars - this includes means
+        wfile = h5open("data/$(parent_folder)/ens_vars_withpr_rmse_$(scenario)_updated.hdf5", "cw") #let's make this also include means
+        hfile = h5open("data/$(parent_folder)/ens_vars_withpr_$(scenario).hdf5", "r") #emulator vars - this includes means
         for number in numbers
             ens_means = variable == "temp" ? read(hfile, "ens_means_tas_$(for_k==true ? 100 : number)") : read(hfile, "ens_means_$(variable)_$(for_k==true ? 100 : number)")
             ens_vars = variable == "temp" ? read(hfile, "ens_vars_tas_$(for_k==true ? 100 : number)") : read(hfile, "ens_vars_$(variable)_$(for_k==true ? 100 : number)")
@@ -137,7 +140,7 @@ function plot_rmse(ax, variable, measure, numbers; testing_k=false, rel_error=fa
     linestyles = testing_k ? [ :solid, :dash, :dashdot] : [ :dot, :solid]
     for (j, scenario) in enumerate(scenarios[2:end])
         for (i, number) in enumerate(numbers)
-            hfile = h5open("data/temp_precip/ens_vars_withpr_rmse_$(scenario)_updated.hdf5", "r")
+            hfile = h5open("data/$(parent_folder)/ens_vars_withpr_rmse_$(scenario)_updated.hdf5", "r")
             
             if testing_k
                 ser = read(hfile, "rmse_$(measure)s_time_$(variable)_k$(number)")
