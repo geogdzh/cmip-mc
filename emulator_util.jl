@@ -38,10 +38,14 @@ function get_mean_coefs(ens_projts, ens_gmt; degree=1)
     return mean_coefs
 end
 
-function gmt_cov(ens_projts, ens_gmt, offloading_tag; detrend=false,  mean_coefs=nothing, corrs=false)
+function gmt_cov(ens_projts, ens_gmt, offloading_tag; detrend=false,  mean_coefs=nothing, corrs=false, parent_folder=nothing)
     D = size(ens_projts)[1]*2
     num_years = length(ens_gmt)
-    wfile = corrs == true ? h5open("data/process/corrs_$(offloading_tag).hdf5", "w") : h5open("data/process/covs_$(offloading_tag).hdf5", "w")
+    if isnothing(parent_folder)
+        wfile = corrs == true ? h5open("data/process/corrs_$(offloading_tag).hdf5", "w") : h5open("data/process/covs_$(offloading_tag).hdf5", "w")
+    else
+        wfile = corrs == true ? h5open("data/process/corrs_$(offloading_tag).hdf5", "w") : h5open("data/process/$(parent_folder)/covs_$(offloading_tag).hdf5", "w")
+    end
     write(wfile, "D", D)
     write(wfile, "num_years", num_years)
     for j in 1:num_years
@@ -63,8 +67,8 @@ function gmt_cov(ens_projts, ens_gmt, offloading_tag; detrend=false,  mean_coefs
 end
 
 # the ORIGINAL METHOD that does both
-function get_chol_coefs(ens_gmt, offloading_tag; return_chols=false, offload=false)
-    hfile = h5open("data/process/covs_$(offloading_tag).hdf5", "r")
+function get_chol_coefs(ens_gmt, offloading_tag; return_chols=false, offload=false, parent_folder=nothing)
+    hfile = isnothing(parent_folder) ? h5open("data/process/covs_$(offloading_tag).hdf5", "r") : h5open("data/process/$(parent_folder)/covs_$(offloading_tag).hdf5", "r")
     D = read(hfile, "D")
     num_years = read(hfile, "num_years")
     # NEED TO ADD IMPLEMENTATION FOR OFFLOAD
@@ -96,11 +100,11 @@ function get_chol_coefs(ens_gmt, offloading_tag; return_chols=false, offload=fal
     return chol_coefs
 end
 
-function get_chols(offloading_tag)
-    hfile = h5open("data/process/covs_$(offloading_tag).hdf5", "r")
+function get_chols(offloading_tag; parent_folder=nothing)
+    hfile = isnothing(parent_folder) ? h5open("data/process/covs_$(offloading_tag).hdf5", "r") : h5open("data/process/$(parent_folder)/covs_$(offloading_tag).hdf5", "r")
     D = read(hfile, "D")
     num_years = read(hfile, "num_years")
-    wfile = h5open("data/process/chols_$(offloading_tag).hdf5", "w")
+    wfile = isnothing(parent_folder) ? h5open("data/process/chols_$(offloading_tag).hdf5", "w") : h5open("data/process/$(parent_folder)/chols_$(offloading_tag).hdf5", "w")
     for j in 1:num_years
         # println("working on cholesky decomposition for year $j")
         # flush(stdout)

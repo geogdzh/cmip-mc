@@ -6,18 +6,24 @@ include("emulator_util.jl")
 # L1, L2 = 1872, 1128 #for CMIP5
 L1, L2 = 1980, 1032 #for CMIP6
 using_precip = true
+non_dim = true
+parent_folder =  non_dim ? "nondim" : "temp_precip"
 
 ############## load a basis
-hfile = using_precip ? h5open("data/temp_precip/temp_precip_basis_1000d.hdf5", "r") : h5open("data/only_temp/temp_basis_1000d.hdf5", "r") #this basis is calculated from just one ens member
+hfile = using_precip ? h5open("data/$(parent_folder)/temp_precip_basis_1000d.hdf5", "r") : h5open("data/only_temp/temp_basis_1000d.hdf5", "r") #this basis is calculated from just one ens member
 basis = read(hfile, "basis")
+if non_dim
+    temp_factor = read(hfile, "temp_factor")
+    pr_factor = read(hfile, "pr_factor")
+end
 close(hfile)
 d = 200
 basis = basis[:, 1:d]
 
 scenarios = ["historical", "ssp585", "ssp245", "ssp119"]
 
-############### get training data for the linear fits 
-for scenario in scenarios[2:end]
+############### 
+for scenario in ["ssp119"]#scenarios[2:end]
     println("working on $(scenario)")
     flush(stdout)
     num_ens_members = 50 # number of model runs used to train the emulator
@@ -36,7 +42,7 @@ for scenario in scenarios[2:end]
             tmps = ncData(files, "tas")
             prs = using_precip ? ncData(files_pr, "pr") : nothing
             if using_precip
-                data = vcat(reshape_data(tmps.data), reshape_data(prs.data))
+                data = non_dim ? vcat(reshape_data(tmps.data) ./ temp_factor , reshape_data(prs.data) ./ temp_factor) : vcat(reshape_data(tmps.data), reshape_data(prs.data))
                 projts[:, :, i] =  project_timeseries(data, basis, reshaped=true)
             else
                 projts[:, :, i] =  project_timeseries(tmps.data, basis)
@@ -54,7 +60,7 @@ for scenario in scenarios[2:end]
     # end
     # num_ens_members = size(ens_gmt)[1]
 
-    hfile = using_precip ? h5open("data/temp_precip/projts_withpr_$(scenario)_$(d)d_$(num_ens_members)ens.hdf5", "w") : h5open("data/temp_only/projts_$(scenario)_$(d)d_$(num_ens_members)ens.hdf5", "w")
+    hfile = using_precip ? h5open("data/$(parent_folder)/projts_withpr_$(scenario)_$(d)d_$(num_ens_members)ens.hdf5", "w") : h5open("data/temp_only/projts_$(scenario)_$(d)d_$(num_ens_members)ens.hdf5", "w")
     write(hfile, "projts", projts)
     write(hfile, "ens_gmt", ens_gmt)
     write(hfile, "num_ens_members", num_ens_members)

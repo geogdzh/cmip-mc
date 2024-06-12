@@ -12,8 +12,11 @@ l1, l2 = 165, 86
 
 
 d=200
+non_dim = true
+parent_folder =  non_dim ? "nondim" : "temp_precip"
+
 ## load the emulator
-hfile = h5open("data/temp_precip/gaussian_emulator_withpr_ssp585_200d.hdf5", "r")
+hfile = h5open("data/$(parent_folder)/gaussian_emulator_withpr_ssp585_200d.hdf5", "r")
 mean_coefs_1 = read(hfile, "mean_coefs_1")
 mean_coefs_2 = read(hfile, "mean_coefs_2")
 mean_coefs_3 = read(hfile, "mean_coefs_3")
@@ -23,7 +26,7 @@ num_ens_members = read(hfile, "num_ens_members")
 ens_gmt = read(hfile, "ens_gmt")
 close(hfile)
 
-hfile = h5open("data/temp_precip/training_data_withpr_ssp585_200d_49ens.hdf5", "r")
+hfile = h5open("data/$(parent_folder)/training_data_withpr_ssp585_200d_49ens.hdf5", "r")
 ens_projts = read(hfile, "projts")[1:d, :, :]
 # ens_gmt = read(hfile, "ens_gmt")
 # num_ens_members = read(hfile, "num_ens_members")
@@ -34,7 +37,7 @@ ens_gmt_119 = read(hfile, "ens_gmt")
 close(hfile)
 ens_gmt_119 = mean(ens_gmt_119, dims=1) # the MAXIMUM (turning point) is at index 34
 
-hfile = h5open("data/temp_precip/projts_withpr_ssp119_200d_50ens.hdf5", "r")
+hfile = h5open("data/$(parent_folder)/projts_withpr_ssp119_200d_50ens.hdf5", "r")
 ens_projts_119 = read(hfile, "projts")
 close(hfile)
 
@@ -164,7 +167,7 @@ begin
             # lines!(ax, ens_gmt[:], [chol_coefs[month, i, j, 2].*x.+chol_coefs[month, i, j, 1] for x in ens_gmt[:]], color=:black, linewidth=3)
         end
     end
-    save("figs/jan_cov_fits_ssp585.png", fig)
+    # save("figs/jan_cov_fits_ssp585.png", fig)
     display(fig)
 end
 
