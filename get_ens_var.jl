@@ -28,6 +28,7 @@ function get_ens_vars(d, true_ens_gmt; get_means=false, k=1) # OR the means lol
     ens_vars_pr = zeros(M, N, L)
     for m in ProgressBar(1:Int(L/12))
         println("working on year $(m)")
+        flush(stdout)
         if get_means
             for n in 1:12
                 if k==1 #MAKE THIS SMARTER lol
@@ -63,7 +64,7 @@ for scenario in scenarios[2:end]
     true_ens_gmt = read(hfile, "true_ens_gmt")
     close(hfile)
 
-    for d in [200] #CHANGE BACK
+    for d in [20,100]#[200] #CHANGE BACK
         println("working on $(d)")
         flush(stdout)
         ens_vars_tas, ens_vars_pr = get_ens_vars(d, true_ens_gmt)
