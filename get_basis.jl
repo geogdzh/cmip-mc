@@ -42,11 +42,14 @@ fullX = hcat(X, X2)
 fullXp = hcat(Xp, Xp2)
 full = vcat(fullX, fullXp)
 U, S, V = svd(full)
-d = 1000
+d = 2000
 basis = U[:,1:d]
 
-hfile = h5open("data/$(parent_folder)/temp_precip_basis_1000d.hdf5", "w") #but to use a smaller basis, can just take fewer modes
+hfile = h5open("data/$(parent_folder)/temp_precip_basis_$(d)d.hdf5", "w") #but to use a smaller basis, can just take fewer modes
 write(hfile, "basis", basis)
-write(hfile, "temp_factor", temp_factor)
-write(hfile, "pr_factor", pr_factor)
+write(hfile, "S", S)
+if non_dim
+    write(hfile, "temp_factor", temp_factor)
+    write(hfile, "pr_factor", pr_factor)
+end
 close(hfile)

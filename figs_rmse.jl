@@ -40,7 +40,7 @@ function plot_rmse(ax, variable, measure, numbers; testing_k=false, rel_error=fa
                 ser = read(hfile, "rmse_$(measure)s_time_$(variable)_$(number)")
             end
 
-            lines!(ax, time_future, sqrt.(month_to_year_avg(ser)), color=scenario_colors[scenario], alpha=0.6, linestyle=linestyles[i])
+            lines!(ax, time_future, month_to_year_avg(ser), color=scenario_colors[scenario], alpha=0.6, linestyle=linestyles[i])
             close(hfile)
         end
     end
@@ -56,18 +56,18 @@ end
 numbers = [20, 100]
 ks = [x for x in 1:3]
 
-variable = "pr" #temp/pr
+variable = "temp" #temp/pr
 begin 
     fig = Figure(resolution=(1500,1000)) #
-    lims = Dict("temp" => (0.4, 0.8), "pr" => (0.0018, 0.0030))
+    lims = Dict("temp" => (0.15, 0.6), "pr" => (3e-6, 9e-6))
 
-    rel_error = true # if true, remove ylims settings
+    rel_error = false # if true, remove ylims settings
     measure = "mean"
     ax = Axis(fig[1,1:4], title="a) Average RMSE of the ensemble $(measure) \n for $(variable == "temp" ? "temperature" : "precipitation") for varied # of modes", xlabel="Year", ylabel="RMSE")
-    # ylims!(ax, lims[variable])
+    ylims!(ax, lims[variable])
     plot_rmse(ax, variable, measure, numbers; rel_error=rel_error)
     ax = Axis(fig[1,5:8], title="b) Average RMSE of the ensemble $(measure) \n for $(variable == "temp" ? "temperature" : "precipitation") for varied degree of fit", xlabel="Year")
-    # ylims!(ax, lims[variable])
+    ylims!(ax, lims[variable])
     plot_rmse(ax, variable, measure, ks[1:2]; rel_error=rel_error, testing_k=true)
     
 
@@ -95,7 +95,7 @@ begin
         Colorbar(fig[2,12], label="RMSE", colormap=:thermal, colorrange=ext, height = Relative(2/4))
     end
     colsize!(fig.layout, 12, Relative(1/11))
-    save("figs/rmse_joint_$(variable)$(rel_error ? "_rel" : "").png", fig)
+    # save("figs/rmse_joint_$(variable)$(rel_error ? "_rel" : "").png", fig)
     fig
 end 
 
