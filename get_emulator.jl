@@ -20,7 +20,7 @@ if non_dim
     pr_factor = read(hfile, "pr_factor")
 end
 close(hfile)
-d = 200#parse(Int, ARGS[1])
+d = parse(Int, ARGS[1])
 basis = basis[:, 1:d]
 
 ########## load in training data
@@ -39,7 +39,7 @@ mean_coefs_2 = get_mean_coefs(ens_projts, ens_gmt, degree=2)
 mean_coefs_3 = get_mean_coefs(ens_projts, ens_gmt, degree=3)
 println("getting the covariances")
 flush(stdout)
-# gmt_cov(ens_projts, ens_gmt, "$(scenario)_$(d)d$(non_dim ? "_nondim" : "")") #saves out covs
+gmt_cov(ens_projts, ens_gmt, "$(scenario)_$(d)d$(non_dim ? "_nondim" : "")") #saves out covs
 println("getting the cholesky decomposition and fitting")
 flush(stdout)
 chol_coefs = get_chol_coefs(ens_gmt, "$(scenario)_$(d)d$(non_dim ? "_nondim" : "")"; offload=offload) # this is NOT IMPLEMENTED YET (offload=true impossible)
