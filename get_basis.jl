@@ -5,8 +5,8 @@ include("eof_util.jl")
 #### get basis - based ONLY on one ens memeber (should this be substantiated?)
 non_dim = true
 
-# file_head = "/net/fs06/d3/mgeo/CMIP6/interim/"
-file_head = "/Users/masha/urop_2022/cmip/CMIP6/interim/" ### CHANGE HERE FOR DIFF LOCATION
+file_head = "/net/fs06/d3/mgeo/CMIP6/interim/"
+# file_head = "/Users/masha/urop_2022/cmip/CMIP6/interim/" ### CHANGE HERE FOR DIFF LOCATION
 parent_folder = non_dim ? "nondim" : "temp_precip"
 
 #first ensemble member of historical run

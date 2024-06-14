@@ -6,13 +6,14 @@ include("emulator_util.jl")
 #################### ok let's test it out for real
 
 #get a sample gmt list and the latvec to be used later on
-file_head = "/Users/masha/urop_2022/cmip/CMIP6/interim/"
+file_head = "/net/fs06/d3/mgeo/CMIP6/interim/"
+# file_head = "/Users/masha/urop_2022/cmip/CMIP6/interim/"
 file3 = file_head*"ssp585/tas/r1i1p1f1_ssp585_tas.nc"
 ts3 = ncData(file3, "tas")
 lonvec, latvec = ts3.lonvec[:], ts3.latvec[:]
 lonvec2 = lonvec .-180.
 
-non_dim = false
+non_dim = true
 parent_folder =  non_dim ? "nondim" : "temp_precip"
 
 ## 
@@ -54,7 +55,7 @@ end
 
 
 numbers = [20, 100]
-ks = [x for x in 1:3]
+ks = [x for x in 1:2]
 
 variable = "temp" #temp/pr
 begin 
@@ -72,7 +73,7 @@ begin
     
 
     ax = GeoAxis(fig[2,1:5], title="d) RMSE of the ensemble $(measure) \n for $(variable == "temp" ? "temperature" : "precipitation") on SSP119")
-    hfile = h5open("data/temp_precip/ens_vars_withpr_rmse_$("ssp119")_updated.hdf5", "r")
+    hfile = h5open("data/$(parent_folder)/ens_vars_withpr_rmse_$("ssp119")_updated.hdf5", "r")
     begin
         data = rel_error ? read(hfile, "rmse_$(measure)s_$(variable)_100_rel") : read(hfile, "rmse_$(measure)s_$(variable)_100")
         close(hfile)
@@ -86,7 +87,7 @@ begin
     plot_rmse(ax, variable, measure, numbers; rel_error=rel_error)
     
     ax = GeoAxis(fig[2,7:11], title="e) RMSE of the ensemble $(measure) \n for $(variable == "temp" ? "temperature" : "precipitation") on SSP119")
-    hfile = h5open("data/temp_precip/ens_vars_withpr_rmse_$("ssp119")_updated.hdf5", "r")
+    hfile = h5open("data/$(parent_folder)/ens_vars_withpr_rmse_$("ssp119")_updated.hdf5", "r")
     begin
         data = rel_error ? read(hfile, "rmse_$(measure)s_$(variable)_100_rel") : read(hfile, "rmse_$(measure)s_$(variable)_100")
         close(hfile)

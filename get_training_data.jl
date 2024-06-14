@@ -17,7 +17,7 @@ if non_dim
     pr_factor = read(hfile, "pr_factor")
 end
 close(hfile)
-d = 200
+d = parse(Int, ARGS[1])
 basis = basis[:, 1:d]
 
 # scenario = "ssp119"
