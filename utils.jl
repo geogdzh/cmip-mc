@@ -35,7 +35,7 @@ function ncData(file, varname)
     lonvec = ds["lon"][:]
     latvec = ds["lat"][:]
     timevec = ds["time"][:]
-    data = ds[varname][:]
+    data = ds[varname][:,:,:]
     return ncData(data, lonvec, latvec, timevec)
 end
 

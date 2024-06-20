@@ -13,9 +13,10 @@ ts3 = ncData(file3, "tas")
 lonvec, latvec = ts3.lonvec[:], ts3.latvec[:]
 lonvec2 = lonvec .-180.
 
-non_dim = true
+non_dim = false
+use_metrics = true
 parent_folder =  non_dim ? "nondim" : "temp_precip"
-
+parent_folder = use_metrics ? "metrics" : parent_folder
 ## 
 scenarios = ["historical", "ssp585", "ssp245", "ssp119"]
 scenario_colors = Dict("historical" => :red4, "ssp585" => :red, "ssp245" => :magenta3, "ssp119" => :indigo)
@@ -31,7 +32,7 @@ function plot_rmse(ax, variable, measure, numbers; testing_k=false, rel_error=fa
     linestyles = testing_k ? [ :solid, :dash, :dashdot] : [ :dot, :solid]
     for (j, scenario) in enumerate(scenarios[2:end])
         for (i, number) in enumerate(numbers)
-            hfile = h5open("data/$(parent_folder)/ens_vars_withpr_rmse_$(scenario)_updated.hdf5", "r")
+            hfile = h5open("data/$(parent_folder)/ens_vars_withpr_rmse_$(scenario).hdf5", "r") #toggle "updated" here
             
             if testing_k
                 ser = read(hfile, "rmse_$(measure)s_time_$(variable)_k$(number)")
@@ -54,10 +55,10 @@ function plot_rmse(ax, variable, measure, numbers; testing_k=false, rel_error=fa
 end
 
 
-numbers = [20, 100]
+numbers = [20]#[20, 100]
 ks = [x for x in 1:2]
 
-variable = "pr" #temp/pr
+variable = "temp" #temp/pr
 begin 
     fig = Figure(resolution=(1500,1000)) #
     lims = Dict("temp" => (0.15, 0.6), "pr" => (3e-6, 9e-6))
@@ -69,13 +70,13 @@ begin
     plot_rmse(ax, variable, measure, numbers; rel_error=rel_error)
     ax = Axis(fig[1,5:8], title="b) Average RMSE of the ensemble $(measure) \n for $(variable == "temp" ? "temperature" : "precipitation") for varied degree of fit", xlabel="Year")
     # ylims!(ax, lims[variable])
-    plot_rmse(ax, variable, measure, ks[1:2]; rel_error=rel_error, testing_k=true)
+    # plot_rmse(ax, variable, measure, ks; rel_error=rel_error, testing_k=true)
     
 
     ax = GeoAxis(fig[2,1:5], title="d) RMSE of the ensemble $(measure) \n for $(variable == "temp" ? "temperature" : "precipitation") on SSP119")
-    hfile = h5open("data/$(parent_folder)/ens_vars_withpr_rmse_$("ssp119")_updated.hdf5", "r")
+    hfile = h5open("data/$(parent_folder)/ens_vars_withpr_rmse_$("ssp119").hdf5", "r") #toggle here
     begin
-        data = rel_error ? read(hfile, "rmse_$(measure)s_$(variable)_100_rel") : read(hfile, "rmse_$(measure)s_$(variable)_100")
+        data = rel_error ? read(hfile, "rmse_$(measure)s_$(variable)_100_rel") : read(hfile, "rmse_$(measure)s_$(variable)_20") #CHANGE BACK
         close(hfile)
         ext = (0., maximum(data))
         heatmap!(ax, lonvec2, latvec, data[:,:,1], colormap=:thermal, colorrange=ext)
@@ -87,9 +88,9 @@ begin
     plot_rmse(ax, variable, measure, numbers; rel_error=rel_error)
     
     ax = GeoAxis(fig[2,7:11], title="e) RMSE of the ensemble $(measure) \n for $(variable == "temp" ? "temperature" : "precipitation") on SSP119")
-    hfile = h5open("data/$(parent_folder)/ens_vars_withpr_rmse_$("ssp119")_updated.hdf5", "r")
+    hfile = h5open("data/$(parent_folder)/ens_vars_withpr_rmse_$("ssp119").hdf5", "r") #toggle here
     begin
-        data = rel_error ? read(hfile, "rmse_$(measure)s_$(variable)_100_rel") : read(hfile, "rmse_$(measure)s_$(variable)_100")
+        data = rel_error ? read(hfile, "rmse_$(measure)s_$(variable)_100_rel") : read(hfile, "rmse_$(measure)s_$(variable)_20") #CHANGE BACK
         close(hfile)
         ext = (0., maximum(data))
         heatmap!(ax, lonvec2, latvec, data[:,:,1], colormap=:thermal, colorrange=ext)
@@ -99,27 +100,6 @@ begin
     # save("figs/rmse_joint_$(variable)$(rel_error ? "_rel" : "").png", fig)
     fig
 end 
-
-begin
-    f = Figure()
-
-    subgl_left = GridLayout()
-    subgl_left[1, 1:3] = [Axis(f) for j in 1:3]
-
-    subgl_right = GridLayout()
-    # subgl_right[1, 1:4] = [Axis(f) for i in 1:4]
-
-    f.layout[1, 1] = subgl_left
-    f.layout[2, 1] = subgl_right
-    ax4 = Axis(subgl_right[1,4])
-    
-    # heatmap!(subgl_right[1,1],  ratio[:,:,1])
-    # Colorbar(subgl_right[1,2], colorrange=(0,1))
-    # heatmap!(subgl_right[1,3], ratio[:,:,1])
-    Colorbar(subgl_right[1,4], height = Relative(2/4))
-    hidedecorations!(ax4)
-    f
-end
 
 
 

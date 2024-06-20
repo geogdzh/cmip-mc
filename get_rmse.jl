@@ -13,16 +13,16 @@ ts3 = ncData(file3, "tas")
 lonvec, latvec = ts3.lonvec[:], ts3.latvec[:]
 lonvec2 = lonvec .-180.
 
-non_dim = true
+non_dim = false
+use_metrics = true
 parent_folder =  non_dim ? "nondim" : "temp_precip"
-
+parent_folder = use_metrics ? "metrics" : parent_folder
 
 ## generate statistics
 scenarios = ["historical", "ssp585", "ssp245", "ssp119"]
-scenario_colors = Dict("historical" => :red4, "ssp585" => :red, "ssp245" => :magenta3, "ssp119" => :indigo)
 time_history = [x for x in 1850:2014]
 time_future = [x for x in 2015:2100]
-L1, L2 = 1980, 1032 #for CMIP6
+L1, L2 = 1980, 1032 
 l1, l2 = 165, 86
 
 
@@ -43,7 +43,7 @@ function calculate_rmse(numbers, variable, scenarios; rel_error=false, for_k=fal
         true_ens_mean = read(hfile, "true_ens_mean")[:,:,:,1]
         close(hfile)
 
-        wfile = h5open("data/$(parent_folder)/ens_vars_withpr_rmse_$(scenario)_updated.hdf5", "cw") #let's make this also include means
+        wfile = h5open("data/$(parent_folder)/ens_vars_withpr_rmse_$(scenario).hdf5", "cw") #let's make this also include means
         hfile = h5open("data/$(parent_folder)/ens_vars_withpr_$(scenario).hdf5", "r") #emulator vars - this includes means
         for number in numbers
             ens_means = variable == "temp" ? read(hfile, "ens_means_tas_$(for_k==true ? 100 : number)") : read(hfile, "ens_means_$(variable)_$(for_k==true ? 100 : number)")
@@ -56,10 +56,10 @@ function calculate_rmse(numbers, variable, scenarios; rel_error=false, for_k=fal
 
             if rel_error
                 rmse_stds = sum(abs.(sqrt.(true_var).-sqrt.(ens_vars)) ./ mean((true_var), dims=3), dims=3) ./size(true_var)[3] #relative to variance
-                rmse_stds_time = weighted_avg(abs.(sqrt.(true_var).-sqrt.(ens_vars)) ./ mean((true_var), dims=3), latvec)
+                rmse_stds_time = weighted_avg(abs.(sqrt.(true_var).-sqrt.(ens_vars)) ./ mean((true_var), dims=3), latvec; already_weighted=use_metrics)
                 # error relative to std for the means
                 rmse_means = sum(abs.(true_ens_mean.-ens_means) ./ mean(sqrt.(true_var), dims=3), dims=3) ./size(true_ens_mean)[3]
-                rmse_means_time = weighted_avg(abs.(true_ens_mean.-ens_means) ./ mean(sqrt.(true_var), dims=3), latvec)
+                rmse_means_time = weighted_avg(abs.(true_ens_mean.-ens_means) ./ mean(sqrt.(true_var), dims=3), latvec; already_weighted=use_metrics)
 
                 write(wfile, "rmse_stds_$(variable)_$(number)_rel", rmse_stds)
                 write(wfile, "rmse_stds_time_$(variable)_$(number)_rel", rmse_stds_time)
@@ -69,16 +69,16 @@ function calculate_rmse(numbers, variable, scenarios; rel_error=false, for_k=fal
                 ens_means = variable == "temp" ? read(hfile, "ens_means_tas_k$(number)") : read(hfile, "ens_means_$(variable)_k$(number)")
 
                 rmse_means = sqrt.(sum((true_ens_mean.-ens_means).^2, dims=3)[:,:,1]./size(true_ens_mean)[3]) #time average rmse (shaped as a map)
-                rmse_means_time = sqrt.(weighted_avg((true_ens_mean.-ens_means).^2, latvec)) #spatial average rmse (shaped as a timeseries
+                rmse_means_time = sqrt.(weighted_avg((true_ens_mean.-ens_means).^2, latvec; already_weighted=use_metrics)) #spatial average rmse (shaped as a timeseries
         
                 write(wfile, "rmse_means_$(variable)_k$(number)", rmse_means)
                 write(wfile, "rmse_means_time_$(variable)_k$(number)", rmse_means_time)
 
             else
                 rmse_stds = sqrt.(sum((sqrt.(true_var) .- sqrt.(ens_vars)).^2, dims=3)[:,:,1]./size(true_var)[3]) #time average rmse (shaped as a map)
-                rmse_stds_time = sqrt.(weighted_avg((sqrt.(true_var) .- sqrt.(ens_vars)).^2, latvec)) #spatial average rmse (shaped as a timeseries)
+                rmse_stds_time = sqrt.(weighted_avg((sqrt.(true_var) .- sqrt.(ens_vars)).^2, latvec; already_weighted=use_metrics)) #spatial average rmse (shaped as a timeseries)
                 rmse_means = sqrt.(sum((true_ens_mean.-ens_means).^2, dims=3)[:,:,1]./size(true_ens_mean)[3]) #time average rmse (shaped as a map)
-                rmse_means_time = sqrt.(weighted_avg((true_ens_mean.-ens_means).^2, latvec)) #spatial average rmse (shaped as a timeseries
+                rmse_means_time = sqrt.(weighted_avg((true_ens_mean.-ens_means).^2, latvec; already_weighted=use_metrics)) #spatial average rmse (shaped as a timeseries
 
                 write(wfile, "rmse_stds_$(variable)_$(number)", rmse_stds)
                 write(wfile, "rmse_stds_time_$(variable)_$(number)", rmse_stds_time)
@@ -92,67 +92,12 @@ function calculate_rmse(numbers, variable, scenarios; rel_error=false, for_k=fal
     end
 end
 
-# begin #iterate through these to get the full files
-#     rel_error = true
-#     variable = "pr" #temp or pr
-#     numbers = [20, 100]
-#     ks = [x for x in 1:3]
-#     calculate_rmse(numbers, variable, scenarios; rel_error=rel_error, for_k=false)
-#     # calculate_rmse(ks, variable, scenarios; rel_error=rel_error, for_k=true)
-# end
-
 for variable in ["temp", "pr"]
     rel_error = false
 
-    numbers = [20, 100]
+    numbers = [20]#[20, 100]
     calculate_rmse(numbers, variable, scenarios; rel_error=rel_error, for_k=false)
     
-    ks = [x for x in 1:2]
-    calculate_rmse(ks, variable, scenarios; rel_error=rel_error, for_k=true)
+    # ks = [x for x in 1:2]
+    # calculate_rmse(ks, variable, scenarios; rel_error=rel_error, for_k=true)
 end
-
-
-# ### dev
-# # true relative error for the variance
-# rmse = sum(    abs.(true_var.-ens_vars) ./ abs.(true_var)    , dims=3) ./size(true_var)[3] #for variance
-# rmse_time = weighted_avg(abs.(true_var.-ens_vars) ./ abs.(true_var), latvec)
-# # std directly
-# # rmse_std = sum(abs.(sqrt.(true_var).-sqrt.(ens_vars)) ./ mean(sqrt.(true_var), dims=3), dims=3) ./size(true_var)[3] 
-# # rmse_std_time = weighted_avg(abs.(sqrt.(true_var).-sqrt.(ens_vars)) ./ mean(sqrt.(true_var), dims=3), latvec)
-# # rmse_std = sum(abs.(sqrt.(true_var).-sqrt.(ens_vars)) ./ sqrt.(true_var), dims=3) ./size(true_var)[3] 
-# # rmse_std_time = weighted_avg(abs.(sqrt.(true_var).-sqrt.(ens_vars)) ./ sqrt.(true_var), latvec)
-
-# #
-# rmse_std = sum(abs.(sqrt.(true_var).-sqrt.(ens_vars)) ./ mean((true_var), dims=3), dims=3) ./size(true_var)[3] #relative to variance
-# rmse_std_time = weighted_avg(abs.(sqrt.(true_var).-sqrt.(ens_vars)) ./ mean((true_var), dims=3), latvec)
-
-# # relative to std error for the means
-# # rmse_means = sum(abs.(true_ens_mean.-ens_means) ./ mean(sqrt.(true_var), dims=3), dims=3) ./size(true_ens_mean)[3]
-# # rmse_means_time = weighted_avg(abs.(true_ens_mean.-ens_means) ./ mean(sqrt.(true_var), dims=3), latvec)
-# rmse_means = sum(     abs.(true_ens_mean.-ens_means) ./ sqrt.(true_var)   , dims=3) ./size(true_ens_mean)[3]
-# rmse_means_time = weighted_avg(abs.(true_ens_mean.-ens_means) ./ sqrt.(true_var), latvec)
-
-
-# lines(time_future, (month_to_year_avg(rmse_means_time)), color=scenario_colors[scenario], alpha=0.6, linestyle=:solid)
-# lines(time_future, (month_to_year_avg(rmse_std_time)), color=scenario_colors[scenario], alpha=0.6, linestyle=:solid)
-# lines(time_future, sqrt.(month_to_year_avg(rmse_time)), color=scenario_colors[scenario], alpha=0.6, linestyle=:solid)
-# begin
-#     fig = Figure()
-#     ax = GeoAxis(fig[1,1])
-#     # data = sqrt.(rmse[:,:,1])
-#     data = rmse_std[:,:,1]
-#     ext = (0., maximum(data))
-#     heatmap!(ax, lonvec2, latvec, data, colormap=:thermal, colorrange=ext)
-#     Colorbar(fig[1,2], label="error", colormap=:thermal, colorrange=ext, height = Relative(2/4))
-#     display(fig)
-# end
-# begin
-#     fig = Figure()
-#     ax = GeoAxis(fig[1,1])
-#     data = sqrt.(rmse_means[:,:,1])
-#     ext = (0., maximum(data))
-#     heatmap!(ax, lonvec2, latvec, data, colormap=:thermal, colorrange=ext)
-#     Colorbar(fig[1,2], label="error", colormap=:thermal, colorrange=ext, height = Relative(2/4))
-#     display(fig)
-# end
-

@@ -16,11 +16,6 @@ function shape_data(data, M, N, full_array=false)
     end
 end
 
-function nondimensionalize()
-    
-end
-
-
 
 function get_eof(d::ncData, full=false)
     X = reshape_data(d.data)
@@ -53,13 +48,16 @@ function back_to_data(projts, basisU)
     return basisU*projts
 end
 
-function weighted_avg(data, latvec)
+function weighted_avg(data, latvec; already_weighted=false)
+    #already_weighted is a flag to indicate if the data is already weighted by the area of the grid cell
+    if already_weighted
+        return mean(data, dims = (1,2))[:]
+    end
     M, N, L = size(data)
     Δϕ = reshape(2π / M * ones(M), (M, 1, 1))
     Δθ = reshape(π / N * ones(N) .* cos.(deg2rad.(latvec)), (1, N, 1))
-    # Δθ = reshape(π / N * ones(N) .* cos.(range(-π/2, π/2, N+2))[2:end-1], (1, N, 1))
     metric = (Δθ .* Δϕ) / (4π)
     return sum(metric .* data, dims = (1,2))[:]
 end
 
-weighted_avg(ts::ncData) = weighted_avg(ts.data, ts.latvec)
+weighted_avg(ts::ncData) = weighted_avg(ts.data, ts.latvec; already_weighted=false)

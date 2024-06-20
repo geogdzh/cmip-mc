@@ -1,9 +1,9 @@
 using Statistics, Distributions, LinearAlgebra, Polynomials
 
 ### data functions
-function get_gmt_list(ts::ncData)
+function get_gmt_list(ts::ncData; use_metrics=false)
     # applies weighting and returns monthly average over entire geographic field
-    hist_mean_temp = weighted_avg(ts)
+    hist_mean_temp = use_metrics ? mean(ts.data, dims=(1,2))[:] : weighted_avg(ts)
     hist_year_temp =  [mean(hist_mean_temp[i:min(i+12-1, end)]) for i in 1:12:length(hist_mean_temp)]
     return hist_year_temp
 end
@@ -71,33 +71,39 @@ function get_chol_coefs(ens_gmt, offloading_tag; return_chols=false, offload=fal
     hfile = isnothing(parent_folder) ? h5open("data/process/covs_$(offloading_tag).hdf5", "r") : h5open("data/process/$(parent_folder)/covs_$(offloading_tag).hdf5", "r")
     D = read(hfile, "D")
     num_years = read(hfile, "num_years")
-    # NEED TO ADD IMPLEMENTATION FOR OFFLOAD
-    chols = zeros((D, D, 12, num_years)) #raising errors for array size
-    for i in 1:12
-        for j in 1:num_years
-            covs = read(hfile, "covs_$j")
-            sc = covs[:,:,i]
-            ll, vv = eigen(sc)
-            sc = sc + sqrt(eps(ll[end])) .* I
-            chols[:,:,i,j] = cholesky(sc).U
-        end
-    end
-    chol_coefs = zeros((12, D, D, 2))
-    for i in 1:12
-        for j in 1:D 
-            for k in 1:D
-                y = [chols[j,k,i,n] for n in 1:num_years]
-                A1 = fill(1., num_years)
-                A2 = ens_gmt'
-                A = hcat(A1, A2)
-                chol_coefs[i, j, k, :] = A \ y
+    # NEED TO ADD IMPLEMENTATION FOR OFFLOAD: in which case call get_chols
+    if !offload 
+        chols = zeros((D, D, 12, num_years)) #raising errors for array size
+        for i in 1:12
+            for j in 1:num_years
+                covs = read(hfile, "covs_$j")
+                sc = covs[:,:,i]
+                ll, vv = eigen(sc)
+                sc = sc + sqrt(eps(ll[end])) .* I
+                chols[:,:,i,j] = cholesky(sc).U
             end
         end
+        chol_coefs = zeros((12, D, D, 2))
+        for i in 1:12
+            for j in 1:D 
+                for k in 1:D
+                    y = [chols[j,k,i,n] for n in 1:num_years]
+                    A1 = fill(1., num_years)
+                    A2 = ens_gmt'
+                    A = hcat(A1, A2)
+                    chol_coefs[i, j, k, :] = A \ y
+                end
+            end
+        end
+        if return_chols
+            return chol_coefs, chols
+        end
+        return chol_coefs
+    else
+        get_chols(offloading_tag; parent_folder=parent_folder) #this gets just the chols and offloads them
+        chol_coefs = fit_chol_coefs(ens_gmt, offloading_tag; parent_folder=parent_folder)
+        return chol_coefs
     end
-    if return_chols
-        return chol_coefs, chols
-    end
-    return chol_coefs
 end
 
 function get_chols(offloading_tag; parent_folder=nothing)
@@ -106,8 +112,8 @@ function get_chols(offloading_tag; parent_folder=nothing)
     num_years = read(hfile, "num_years")
     wfile = isnothing(parent_folder) ? h5open("data/process/chols_$(offloading_tag).hdf5", "w") : h5open("data/process/$(parent_folder)/chols_$(offloading_tag).hdf5", "w")
     for j in 1:num_years
-        # println("working on cholesky decomposition for year $j")
-        # flush(stdout)
+        println("working on cholesky decomposition for year $j")
+        flush(stdout)
         chols = zeros((D, D, 12))
         for i in 1:12 
             covs = read(hfile, "covs_$j")
@@ -125,7 +131,7 @@ function get_chols(offloading_tag; parent_folder=nothing)
     close(hfile)
 end
 
-# function get_chol_coefs(ens_gmt, offloading_tag)
+# function fit_chol_coefs(ens_gmt, offloading_tag)
 #     hfile = h5open("data/process/chols_$(offloading_tag).hdf5", "r")
 #     num_years = read(hfile, "num_years")
 #     D = read(hfile, "D")
@@ -148,7 +154,7 @@ end
 #     return chol_coefs
 # end
 
-# function get_chol_coefs(ens_gmt, offloading_tag) # NEED TO MERGE THIS WITH ABOVE
+# function fit_chol_coefs(ens_gmt, offloading_tag) # NEED TO MERGE THIS WITH ABOVE
 #     hfile = h5open("data/process/chols_$(offloading_tag).hdf5", "r")
 #     num_years = read(hfile, "num_years")
 #     D = read(hfile, "D")

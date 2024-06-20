@@ -9,22 +9,27 @@ scenario = "ssp585"
 # scenario = "ssp119"
 offload = false
 using_precip = true
-non_dim = true #using precip must also be true
+non_dim = false #using precip must also be true
+use_metrics = true
 parent_folder =  non_dim ? "nondim" : "temp_precip"
+parent_folder = use_metrics ? "metrics" : parent_folder
 
 ######### load in basis
 hfile = using_precip ? h5open("data/$(parent_folder)/temp_precip_basis_1000d.hdf5", "r") : h5open("data/only_temp/temp_basis_1000d.hdf5", "r") #this basis is calculated from just one ens member
 basis = read(hfile, "basis")
-if non_dim
-    temp_factor = read(hfile, "temp_factor")
-    pr_factor = read(hfile, "pr_factor")
-end
+# if non_dim ##none of this is actually used here
+#     temp_factor = read(hfile, "temp_factor")
+#     pr_factor = read(hfile, "pr_factor")
+# end
+# if use_metrics
+#     metric = read(hfile, "metric")
+# end
 close(hfile)
 d = parse(Int, ARGS[1])
 basis = basis[:, 1:d]
 
 ########## load in training data
-hfile = using_precip ?  h5open("data/$(parent_folder)/training_data_withpr_$(scenario)_200d_49ens.hdf5", "r") : h5open("data/only_temp/training_data_$(scenario)_200d_49ens.hdf5", "r")
+hfile = using_precip ?  h5open("data/$(parent_folder)/training_data_withpr_$(scenario)_100d_49ens.hdf5", "r") : h5open("data/only_temp/training_data_$(scenario)_200d_49ens.hdf5", "r")
 ens_projts = read(hfile, "projts")[1:d, :, :]
 ens_gmt = read(hfile, "ens_gmt")
 num_ens_members = read(hfile, "num_ens_members")
@@ -51,8 +56,13 @@ write(hfile, "mean_coefs_2", mean_coefs_2)
 write(hfile, "mean_coefs_3", mean_coefs_3)
 write(hfile, "chol_coefs", chol_coefs)
 write(hfile, "basis", basis)
-write(hfile, "temp_factor", temp_factor)
-write(hfile, "pr_factor", pr_factor)
+if non_dim
+    write(hfile, "temp_factor", temp_factor)
+    write(hfile, "pr_factor", pr_factor)
+end
+if use_metrics
+    write(hfile, "metric", metric)
+end
 write(hfile, "num_ens_members", num_ens_members)
 write(hfile, "ens_gmt", ens_gmt)
 close(hfile)

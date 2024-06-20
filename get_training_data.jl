@@ -6,8 +6,10 @@ include("emulator_util.jl")
 # L1, L2 = 1872, 1128 #for CMIP5
 L1, L2 = 1980, 1032 #for CMIP6
 using_precip = true
-non_dim = true #using precip must also be true
+non_dim = false  #using precip must also be true
+use_metrics = true
 parent_folder =  non_dim ? "nondim" : "temp_precip"
+parent_folder = use_metrics ? "metrics" : parent_folder
 
 ############## load a basis
 hfile = using_precip ? h5open("data/$(parent_folder)/temp_precip_basis_1000d.hdf5", "r") : h5open("data/only_temp/temp_basis_1000d.hdf5", "r") #this basis is calculated from just one ens member
@@ -15,6 +17,9 @@ basis = read(hfile, "basis")
 if non_dim
     temp_factor = read(hfile, "temp_factor")
     pr_factor = read(hfile, "pr_factor")
+end
+if use_metrics
+    metric = read(hfile, "metric")
 end
 close(hfile)
 d = parse(Int, ARGS[1])
@@ -28,8 +33,8 @@ num_ens_members = 50 # number of model runs used to train the emulator
 projts = zeros((d, (L1+L2), num_ens_members)) 
 ens_gmt = zeros((num_ens_members, Int((L1+L2)/12))) #GMT in any case
 
-# file_head = "/net/fs06/d3/mgeo/CMIP6/interim/"
-file_head = "/Users/masha/urop_2022/cmip/CMIP6/interim/"
+file_head = "/net/fs06/d3/mgeo/CMIP6/interim/"
+# file_head = "/Users/masha/urop_2022/cmip/CMIP6/interim/"
 errors = []
 for i in 1:num_ens_members#ProgressBar(1:num_ens_members)
     try
@@ -42,21 +47,41 @@ for i in 1:num_ens_members#ProgressBar(1:num_ens_members)
         tmps = ncData(files[1], "tas")
         prs = using_precip ? ncData(files_pr[1], "pr") : nothing
         if using_precip
-            data = non_dim ? vcat(reshape_data(tmps.data) ./ temp_factor , reshape_data(prs.data) ./ temp_factor) : vcat(reshape_data(tmps.data), reshape_data(prs.data))
+            data1 = tmps.data
+            data2 = prs.data
+            if non_dim
+                data1 = data1 ./ temp_factor
+                data2 = data2 ./ pr_factor
+            end
+            if use_metrics
+                data1 = sqrt.(metric) .* data1
+                data2 = sqrt.(metric) .* data2
+            end
+            data = vcat(reshape_data(data1), reshape_data(data2))
             projts[:, 1:L1, i] =  project_timeseries(data, basis, reshaped=true)
         else
             projts[:, 1:L1, i] =  project_timeseries(tmps.data, basis)
         end
-        ens_gmt[i, 1:Int(L1/12)] = get_gmt_list(tmps) 
+        ens_gmt[i, 1:Int(L1/12)] = get_gmt_list(tmps; use_metrics=use_metrics) 
         tmps = ncData(files[2], "tas")
         prs = using_precip ? ncData(files_pr[2], "pr") : nothing
         if using_precip
-            data = non_dim ? vcat(reshape_data(tmps.data) ./ temp_factor , reshape_data(prs.data) ./ temp_factor) : vcat(reshape_data(tmps.data), reshape_data(prs.data))
+            data1 = tmps.data
+            data2 = prs.data
+            if non_dim
+                data1 = data1 ./ temp_factor
+                data2 = data2 ./ pr_factor
+            end
+            if use_metrics
+                data1 = sqrt.(metric) .* data1
+                data2 = sqrt.(metric) .* data2
+            end
+            data = vcat(reshape_data(data1), reshape_data(data2))
             projts[:, L1+1:end, i] = project_timeseries(data, basis, reshaped=true)
         else
             projts[:, L1+1:end, i] = project_timeseries(tmps.data, basis)
         end
-        ens_gmt[i, Int(L1/12)+1:end] = get_gmt_list(tmps)
+        ens_gmt[i, Int(L1/12)+1:end] = get_gmt_list(tmps; use_metrics=use_metrics)
     catch
         println("missing values in ensemble member $(i)")
         push!(errors, i)
