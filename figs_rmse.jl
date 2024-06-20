@@ -6,8 +6,8 @@ include("emulator_util.jl")
 #################### ok let's test it out for real
 
 #get a sample gmt list and the latvec to be used later on
-file_head = "/net/fs06/d3/mgeo/CMIP6/interim/"
-# file_head = "/Users/masha/urop_2022/cmip/CMIP6/interim/"
+# file_head = "/net/fs06/d3/mgeo/CMIP6/interim/"
+file_head = "/Users/masha/urop_2022/cmip/CMIP6/interim/"
 file3 = file_head*"ssp585/tas/r1i1p1f1_ssp585_tas.nc"
 ts3 = ncData(file3, "tas")
 lonvec, latvec = ts3.lonvec[:], ts3.latvec[:]
@@ -60,15 +60,15 @@ ks = [x for x in 1:2]
 variable = "temp" #temp/pr
 begin 
     fig = Figure(resolution=(1500,1000)) #
-    lims = Dict("temp" => (0.15, 0.6), "pr" => (3e-6, 9e-6))
+    # lims = Dict("temp" => (0.15, 0.6), "pr" => (3e-6, 9e-6))
 
     rel_error = false # if true, remove ylims settings
     measure = "mean"
     ax = Axis(fig[1,1:4], title="a) Average RMSE of the ensemble $(measure) \n for $(variable == "temp" ? "temperature" : "precipitation") for varied # of modes", xlabel="Year", ylabel="RMSE")
-    ylims!(ax, lims[variable])
+    # ylims!(ax, lims[variable])
     plot_rmse(ax, variable, measure, numbers; rel_error=rel_error)
     ax = Axis(fig[1,5:8], title="b) Average RMSE of the ensemble $(measure) \n for $(variable == "temp" ? "temperature" : "precipitation") for varied degree of fit", xlabel="Year")
-    ylims!(ax, lims[variable])
+    # ylims!(ax, lims[variable])
     plot_rmse(ax, variable, measure, ks[1:2]; rel_error=rel_error, testing_k=true)
     
 
