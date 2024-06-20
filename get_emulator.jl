@@ -8,28 +8,29 @@ L1, L2 = 1980, 1032 #for CMIP6
 scenario = "ssp585"
 # scenario = "ssp119"
 offload = false
-using_precip = true
+using_precip = false #doesn't really toggle anything #FIX
 non_dim = false #using precip must also be true
 use_metrics = true
 parent_folder =  non_dim ? "nondim" : "temp_precip"
 parent_folder = use_metrics ? "metrics" : parent_folder
+parent_folder = "temp_metrics" #FIX !!!
 
 ######### load in basis
-hfile = using_precip ? h5open("data/$(parent_folder)/temp_precip_basis_1000d.hdf5", "r") : h5open("data/only_temp/temp_basis_1000d.hdf5", "r") #this basis is calculated from just one ens member
+hfile = using_precip ? h5open("data/$(parent_folder)/temp_precip_basis_2000d.hdf5", "r") : h5open("data/$(parent_folder)/temp_basis_2000d.hdf5", "r") #this basis is calculated from just one ens member
 basis = read(hfile, "basis")
-# if non_dim ##none of this is actually used here
-#     temp_factor = read(hfile, "temp_factor")
-#     pr_factor = read(hfile, "pr_factor")
-# end
-# if use_metrics
-#     metric = read(hfile, "metric")
-# end
+if non_dim ##none of this is actually used here
+    temp_factor = read(hfile, "temp_factor")
+    pr_factor = read(hfile, "pr_factor")
+end
+if use_metrics
+    metric = read(hfile, "metric")
+end
 close(hfile)
 d = parse(Int, ARGS[1])
 basis = basis[:, 1:d]
 
 ########## load in training data
-hfile = using_precip ?  h5open("data/$(parent_folder)/training_data_withpr_$(scenario)_100d_49ens.hdf5", "r") : h5open("data/only_temp/training_data_$(scenario)_200d_49ens.hdf5", "r")
+hfile = using_precip ?  h5open("data/$(parent_folder)/training_data_withpr_$(scenario)_100d_49ens.hdf5", "r") : h5open("data/$(parent_folder)/training_data_$(scenario)_$(d)d_49ens.hdf5", "r")
 ens_projts = read(hfile, "projts")[1:d, :, :]
 ens_gmt = read(hfile, "ens_gmt")
 num_ens_members = read(hfile, "num_ens_members")
@@ -50,7 +51,7 @@ flush(stdout)
 chol_coefs = get_chol_coefs(ens_gmt, "$(scenario)_$(d)d$(non_dim ? "_nondim" : "")"; offload=offload) # this is NOT IMPLEMENTED YET (offload=true impossible)
 
 
-hfile = using_precip ? h5open("data/$(parent_folder)/gaussian_emulator_withpr_$(scenario)_$(d)d.hdf5", "w") : h5open("data/temp_only/gaussian_emulator_$(scenario)_$(d)d.hdf5", "w")
+hfile = using_precip ? h5open("data/$(parent_folder)/gaussian_emulator_withpr_$(scenario)_$(d)d.hdf5", "w") : h5open("data/$(parent_folder)/gaussian_emulator_$(scenario)_$(d)d.hdf5", "w")
 write(hfile, "mean_coefs_1", mean_coefs_1)
 write(hfile, "mean_coefs_2", mean_coefs_2)
 write(hfile, "mean_coefs_3", mean_coefs_3)

@@ -115,14 +115,16 @@ end
 #modes 6 and 15 look vaguely enso-like in the non-dim version
 
 ### cumulative variance plot
+parent_folder = "temp_only"
 
-hfile = h5open("data/$(parent_folder)/temp_precip_basis_2000d.hdf5", "r")
+# hfile = h5open("data/$(parent_folder)/temp_precip_basis_1000d.hdf5", "r")
+hfile = h5open("data/$(parent_folder)/temp_basis_1000d.hdf5", "r")
 basis = read(hfile, "basis")
 S = read(hfile, "S")
 close(hfile)
 
 ss = sum(S.^2)
-cum_var = cumsum([s^2 / ss for s in S])
+cum_var = cumsum(S.^2 ./ ss)
 
 begin
     fig = Figure(resolution=(600, 400))

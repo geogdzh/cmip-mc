@@ -3,16 +3,16 @@ include("utils.jl")
 include("eof_util.jl")
 include("emulator_util.jl")
 
-# L1, L2 = 1872, 1128 #for CMIP5
 L1, L2 = 1980, 1032 #for CMIP6
-using_precip = true
+using_precip = false # FIX THIS
 non_dim = false  #using precip must also be true
 use_metrics = true
 parent_folder =  non_dim ? "nondim" : "temp_precip"
 parent_folder = use_metrics ? "metrics" : parent_folder
+parent_folder = "temp_metrics"
 
 ############## load a basis
-hfile = using_precip ? h5open("data/$(parent_folder)/temp_precip_basis_1000d.hdf5", "r") : h5open("data/only_temp/temp_basis_1000d.hdf5", "r") #this basis is calculated from just one ens member
+hfile = using_precip ? h5open("data/$(parent_folder)/temp_precip_basis_1000d.hdf5", "r") : h5open("data/$(parent_folder)/temp_basis_2000d.hdf5", "r") #this basis is calculated from just one ens member
 basis = read(hfile, "basis")
 if non_dim
     temp_factor = read(hfile, "temp_factor")
@@ -60,7 +60,7 @@ for i in 1:num_ens_members#ProgressBar(1:num_ens_members)
             data = vcat(reshape_data(data1), reshape_data(data2))
             projts[:, 1:L1, i] =  project_timeseries(data, basis, reshaped=true)
         else
-            projts[:, 1:L1, i] =  project_timeseries(tmps.data, basis)
+            projts[:, 1:L1, i] =  use_metrics ? project_timeseries((tmps.data .* sqrt.(metric)), basis) : project_timeseries(tmps.data, basis)
         end
         ens_gmt[i, 1:Int(L1/12)] = get_gmt_list(tmps; use_metrics=use_metrics) 
         tmps = ncData(files[2], "tas")
@@ -79,7 +79,8 @@ for i in 1:num_ens_members#ProgressBar(1:num_ens_members)
             data = vcat(reshape_data(data1), reshape_data(data2))
             projts[:, L1+1:end, i] = project_timeseries(data, basis, reshaped=true)
         else
-            projts[:, L1+1:end, i] = project_timeseries(tmps.data, basis)
+            # projts[:, L1+1:end, i] = project_timeseries(tmps.data, basis)
+            projts[:, L1+1:end, i] = use_metrics ? project_timeseries((tmps.data .* sqrt.(metric)), basis) : project_timeseries(tmps.data, basis)
         end
         ens_gmt[i, Int(L1/12)+1:end] = get_gmt_list(tmps; use_metrics=use_metrics)
     catch
@@ -94,12 +95,24 @@ ens_gmt = ens_gmt[1:end .!= errors[:], :]
 # end
 num_ens_members = size(ens_gmt)[1]
 
-hfile = using_precip ? h5open("data/$(parent_folder)/training_data_withpr_$(scenario)_$(d)d_$(num_ens_members)ens.hdf5", "w") : h5open("data/temp_only/training_data_$(scenario)_$(d)d_$(num_ens_members)ens.hdf5", "w")
+hfile = using_precip ? h5open("data/$(parent_folder)/training_data_withpr_$(scenario)_$(d)d_$(num_ens_members)ens.hdf5", "w") : h5open("data/$(parent_folder)/training_data_$(scenario)_$(d)d_$(num_ens_members)ens.hdf5", "w")
 write(hfile, "projts", projts)
 write(hfile, "ens_gmt", ens_gmt)
 write(hfile, "num_ens_members", num_ens_members)
 close(hfile)
 
+############## dev
 
-################# an alternative to assemble the training data from existing files... :
+hfile = h5open("data/$(parent_folder)/training_data_$(scenario)_$(d)d_49ens.hdf5", "r")
+projts = read(hfile, "projts")
+ens_gmt = read(hfile, "ens_gmt")
+close(hfile)
 
+begin
+    fig = Figure()
+    ax = Axis(fig[1, 1])
+    for i in 1:49
+        lines!(ax, projts[1,1:12:end,i], color=:blue, label="tas")
+    end
+    display(fig)
+end

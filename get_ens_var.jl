@@ -11,27 +11,29 @@ scenarios = ["historical", "ssp585", "ssp245", "ssp119"]
 # M, N, L = size(ts3.data)
 # latvec = ts3.latvec
 
+using_precip = false
 non_dim = false
 use_metrics = true
 parent_folder =  non_dim ? "nondim" : "temp_precip"
 parent_folder = use_metrics ? "metrics" : parent_folder
+parent_folder = "temp_metrics" #FIX THIS
 
 
 function get_ens_vars(d, true_ens_gmt; get_means=false, k=1) # OR the means lol
     M = 192
     N = 96
     L = 1032
-    hfile = h5open("data/$(parent_folder)/gaussian_emulator_withpr_ssp585_$(d)d.hdf5", "r")
+    hfile = using_precip ? h5open("data/$(parent_folder)/gaussian_emulator_withpr_ssp585_$(d)d.hdf5", "r") : h5open("data/$(parent_folder)/gaussian_emulator_ssp585_$(d)d.hdf5", "r")
     mean_coefs = read(hfile, "mean_coefs_$(k)")
     chol_coefs = read(hfile, "chol_coefs")
     basis = read(hfile, "basis")
-    close(hfile)
     if use_metrics
-        # metric = read(hfile, "metric") #this will eventually be IMPLEMENTED
-        hfile = h5open("data/$(parent_folder)/temp_precip_basis_1000d.hdf5", "r")
-        metric = read(hfile, "metric")
-        close(hfile)
+        metric = read(hfile, "metric") #this will eventually be IMPLEMENTED
+        # hfile = h5open("data/$(parent_folder)/temp_precip_basis_1000d.hdf5", "r")
+        # metric = read(hfile, "metric")
+        # close(hfile)
     end
+    close(hfile)
     ens_vars_tas = zeros(M, N, L)
     ens_vars_pr = zeros(M, N, L)
     for m in ProgressBar(1:Int(L/12))
@@ -47,19 +49,23 @@ function get_ens_vars(d, true_ens_gmt; get_means=false, k=1) # OR the means lol
                     data = back_to_data(mean_coefs[n,:,2].*true_ens_gmt[m] .+ mean_coefs[n, :, 1] .+ mean_coefs[n,:,3].*true_ens_gmt[m].^2 .+ mean_coefs[n,:,4].*true_ens_gmt[m].^3, basis)
                 end
                 ens_vars_tas[:,:,(m-1)*12+n] = use_metrics ? shape_data(data[1:M*N,:], M, N) ./ sqrt.(metric) : shape_data(data[1:M*N,:], M, N)
-                ens_vars_pr[:,:,(m-1)*12+n] = use_metrics ? shape_data(data[M*N+1:end,:], M, N) ./ sqrt.(metric) : shape_data(data[M*N+1:end,:], M, N)
+                if using_precip
+                    ens_vars_pr[:,:,(m-1)*12+n] = use_metrics ? shape_data(data[M*N+1:end,:], M, N) ./ sqrt.(metric) : shape_data(data[M*N+1:end,:], M, N)
+                end
             end
         else
             co = get_cov(true_ens_gmt[m], chol_coefs) 
             for n in 1:12
                 data = sum([co[:,:,n][i,j].*basis[:,i].*basis[:,j] for i in 1:d, j in 1:d])
                 ens_vars_tas[:,:,(m-1)*12+n] = use_metrics ? shape_data(data[1:M*N,:], M, N) ./ sqrt.(metric) : shape_data(data[1:M*N,:], M, N)
-                ens_vars_pr[:,:,(m-1)*12+n] = use_metrics ? shape_data(data[M*N+1:end,:], M, N) ./ sqrt.(metric) : shape_data(data[M*N+1:end,:], M, N)
+                if using_precip
+                    ens_vars_pr[:,:,(m-1)*12+n] = use_metrics ? shape_data(data[M*N+1:end,:], M, N) ./ sqrt.(metric) : shape_data(data[M*N+1:end,:], M, N)
+                end
             end
         end
     end
     println("done")
-    return ens_vars_tas, ens_vars_pr
+    return using_precip ? (ens_vars_tas, ens_vars_pr) : ens_vars_tas
 end
 
 # test the differnt values of n
@@ -75,14 +81,23 @@ for scenario in scenarios[2:end]
     for d in  [20]#[20,100]#[200] #CHANGE BACK
         println("working on $(d)")
         flush(stdout)
-        ens_vars_tas, ens_vars_pr = get_ens_vars(d, true_ens_gmt)
-        ens_means_tas, ens_means_pr = get_ens_vars(d, true_ens_gmt; get_means=true)
-        hfile = h5open("data/$(parent_folder)/ens_vars_withpr_$(scenario).hdf5", "cw")
-        write(hfile, "ens_vars_tas_$(d)", ens_vars_tas)
-        write(hfile, "ens_vars_pr_$(d)", ens_vars_pr)
-        write(hfile, "ens_means_tas_$(d)", ens_means_tas)
-        write(hfile, "ens_means_pr_$(d)", ens_means_pr)
-        close(hfile)
+        if using_precip
+            ens_vars_tas, ens_vars_pr = get_ens_vars(d, true_ens_gmt)
+            ens_means_tas, ens_means_pr = get_ens_vars(d, true_ens_gmt; get_means=true)
+            hfile = h5open("data/$(parent_folder)/ens_vars_withpr_$(scenario).hdf5", "cw")
+            write(hfile, "ens_vars_tas_$(d)", ens_vars_tas)
+            write(hfile, "ens_vars_pr_$(d)", ens_vars_pr)
+            write(hfile, "ens_means_tas_$(d)", ens_means_tas)
+            write(hfile, "ens_means_pr_$(d)", ens_means_pr)
+            close(hfile)
+        else
+            ens_vars_tas = get_ens_vars(d, true_ens_gmt)
+            ens_means_tas = get_ens_vars(d, true_ens_gmt; get_means=true)
+            hfile = h5open("data/$(parent_folder)/ens_vars_$(scenario).hdf5", "cw")
+            write(hfile, "ens_vars_tas_$(d)", ens_vars_tas)
+            write(hfile, "ens_means_tas_$(d)", ens_means_tas)
+            close(hfile)
+        end
     end
 end
 

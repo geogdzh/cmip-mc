@@ -13,10 +13,12 @@ ts3 = ncData(file3, "tas")
 lonvec, latvec = ts3.lonvec[:], ts3.latvec[:]
 lonvec2 = lonvec .-180.
 
+using_precip = false #FIX
 non_dim = false
 use_metrics = true
 parent_folder =  non_dim ? "nondim" : "temp_precip"
 parent_folder = use_metrics ? "metrics" : parent_folder
+parent_folder = "temp_metrics" #FIX THIS
 
 ## generate statistics
 scenarios = ["historical", "ssp585", "ssp245", "ssp119"]
@@ -44,7 +46,7 @@ function calculate_rmse(numbers, variable, scenarios; rel_error=false, for_k=fal
         close(hfile)
 
         wfile = h5open("data/$(parent_folder)/ens_vars_withpr_rmse_$(scenario).hdf5", "cw") #let's make this also include means
-        hfile = h5open("data/$(parent_folder)/ens_vars_withpr_$(scenario).hdf5", "r") #emulator vars - this includes means
+        hfile = using_precip ? h5open("data/$(parent_folder)/ens_vars_withpr_$(scenario).hdf5", "r") : h5open("data/$(parent_folder)/ens_vars_$(scenario).hdf5", "r")#emulator vars - this includes means
         for number in numbers
             ens_means = variable == "temp" ? read(hfile, "ens_means_tas_$(for_k==true ? 100 : number)") : read(hfile, "ens_means_$(variable)_$(for_k==true ? 100 : number)")
             ens_vars = variable == "temp" ? read(hfile, "ens_vars_tas_$(for_k==true ? 100 : number)") : read(hfile, "ens_vars_$(variable)_$(for_k==true ? 100 : number)")
