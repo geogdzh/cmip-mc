@@ -6,8 +6,8 @@ include("emulator_util.jl")
 #################### ok let's test it out for real
 
 #get a sample gmt list and the latvec to be used later on
-file_head = "/net/fs06/d3/mgeo/CMIP6/interim/"
-# file_head = "/Users/masha/urop_2022/cmip/CMIP6/interim/"
+# file_head = "/net/fs06/d3/mgeo/CMIP6/interim/"
+file_head = "/Users/masha/urop_2022/cmip/CMIP6/interim/"
 file3 = file_head*"ssp585/tas/r1i1p1f1_ssp585_tas.nc"
 ts3 = ncData(file3, "tas")
 lonvec, latvec = ts3.lonvec[:], ts3.latvec[:]
@@ -42,7 +42,7 @@ function plot_rmse(ax, variable, measure, numbers; testing_k=false, rel_error=fa
                 ser = read(hfile, "rmse_$(measure)s_time_$(variable)_$(number)")
             end
 
-            lines!(ax, time_future, sqrt.(month_to_year_avg(ser)), color=scenario_colors[scenario], alpha=0.6, linestyle=linestyles[i])
+            lines!(ax, time_future, month_to_year_avg(ser), color=scenario_colors[scenario], alpha=0.6, linestyle=linestyles[i])
             close(hfile)
         end
     end
@@ -61,7 +61,7 @@ ks = [x for x in 1:2]
 variable = "temp" #temp/pr
 begin 
     fig = Figure(resolution=(1500,1000)) #
-    lims = Dict("temp" => (0.15, 0.6), "pr" => (3e-6, 9e-6))
+    # lims = Dict("temp" => (0.15, 0.6), "pr" => (3e-6, 9e-6))
 
     rel_error = false # if true, remove ylims settings
     measure = "mean"

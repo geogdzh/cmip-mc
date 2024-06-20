@@ -9,7 +9,7 @@ scenarios = ["historical", "ssp585", "ssp245", "ssp119"]
 scenario_colors = Dict("historical" => :red4, "ssp585" => :red, "ssp245" => :magenta3, "ssp119" => :indigo)
 M, N = 192, 96
 
-non_dim = false
+non_dim = true
 parent_folder =  non_dim ? "nondim" : "temp_precip"
 
 #get sample timevecs
@@ -22,7 +22,7 @@ time_history = [x for x in 1850:2014]
 time_future = [x for x in 2015:2100]
 
 begin
-    fig = Figure(resolution=(1000, 800))
+    fig = Figure(resolution=(800, 500))
     ax = Axis(fig[1,1], xlabel="Year", ylabel="GMT (K)", title="Global Mean Temperature in MPI-ESM1.2-LR", xticks=1850:50:2100)
     for scenario in scenarios
         hfile = scenario=="historical" ? h5open("data/$(scenario)_gmts_49ens.hdf5", "r") : h5open("data/$(scenario)_gmts_50ens.hdf5", "r")
@@ -37,7 +37,7 @@ begin
     end
     axislegend(ax, position=:lt)
     display(fig)
-    # save("figs/gmt_scenarios.png", fig)
+    save("figs/gmt_scenarios.png", fig)
 end
 
 # fig 2: show the basis
@@ -101,16 +101,33 @@ begin
 end
 
 
-#
+# generate visuals of all the modes
 
-for i in 200:-1:1
-    fig = Figure(resolution=(1000,750))
-    ax = GeoAxis(fig[1,1], title="Mode $i")
-    tmp = reshape(basis[1:M*N,i], (M, N))
-    heatmap!(ax, lonvec2, latvec, tmp, colormap=:thermometer)
-    save("figs/modes_og/temp_mode_$i.png", fig)
-    # display(fig)
+# for i in 200:-1:1
+#     fig = Figure(resolution=(1000,750))
+#     ax = GeoAxis(fig[1,1], title="Mode $i")
+#     tmp = reshape(basis[1:M*N,i], (M, N))
+#     heatmap!(ax, lonvec2, latvec, tmp, colormap=:thermometer)
+#     save("figs/modes_og/temp_mode_$i.png", fig)
+#     # display(fig)
+# end
+
+#modes 6 and 15 look vaguely enso-like in the non-dim version
+
+### cumulative variance plot
+
+hfile = h5open("data/$(parent_folder)/temp_precip_basis_2000d.hdf5", "r")
+basis = read(hfile, "basis")
+S = read(hfile, "S")
+close(hfile)
+
+ss = sum(S.^2)
+cum_var = cumsum([s^2 / ss for s in S])
+
+begin
+    fig = Figure(resolution=(600, 400))
+    ax = Axis(fig[1,1], xlabel="Mode", ylabel="Cumulative variance explained", title="Cumulative variance explained by the modes")
+    lines!(ax, cum_var, color=:black, linestyle=:solid)
+    display(fig)
+    # save("figs/cum_var.png", fig)
 end
-
-#modes 6 and 15 look vaguely enso-like
-
