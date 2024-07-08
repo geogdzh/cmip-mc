@@ -9,11 +9,13 @@ scenarios = ["historical", "ssp585", "ssp245", "ssp119"]
 scenario_colors = Dict("historical" => :red4, "ssp585" => :red, "ssp245" => :magenta3, "ssp119" => :indigo)
 M, N = 192, 96
 
-non_dim = true
+non_dim = false
 parent_folder =  non_dim ? "nondim" : "temp_precip"
+parent_folder = "temp_metrics"
 
 #get sample timevecs
-file_head = "/Users/masha/urop_2022/cmip/CMIP6/interim/"
+file_head = "/net/fs06/d3/mgeo/CMIP6/interim/"
+# file_head = "/Users/masha/urop_2022/cmip/CMIP6/interim/"
 file3 = file_head*"ssp585/tas/r1i1p1f1_ssp585_tas.nc"
 ts3 = ncData(file3, "tas")
 lonvec, latvec = ts3.lonvec[:], ts3.latvec[:]
@@ -37,11 +39,12 @@ begin
     end
     axislegend(ax, position=:lt)
     display(fig)
-    save("figs/gmt_scenarios.png", fig)
+    # save("figs/gmt_scenarios.png", fig)
 end
 
 # fig 2: show the basis
-hfile = h5open("data/$(parent_folder)/temp_precip_basis_1000d.hdf5", "r")
+# hfile = h5open("data/$(parent_folder)/temp_precip_basis_1000d.hdf5", "r")
+hfile = h5open("data/$(parent_folder)/temp_basis_2000d.hdf5", "r")
 basis = read(hfile, "basis")
 close(hfile)
 
@@ -115,10 +118,10 @@ end
 #modes 6 and 15 look vaguely enso-like in the non-dim version
 
 ### cumulative variance plot
-parent_folder = "temp_only"
+parent_folder = "metrics"
 
-# hfile = h5open("data/$(parent_folder)/temp_precip_basis_1000d.hdf5", "r")
-hfile = h5open("data/$(parent_folder)/temp_basis_1000d.hdf5", "r")
+hfile = h5open("data/$(parent_folder)/temp_precip_basis_2000d.hdf5", "r")
+# hfile = h5open("data/$(parent_folder)/temp_basis_2000d.hdf5", "r")
 basis = read(hfile, "basis")
 S = read(hfile, "S")
 close(hfile)

@@ -13,12 +13,23 @@ ts3 = ncData(file3, "tas")
 lonvec, latvec = ts3.lonvec[:], ts3.latvec[:]
 lonvec2 = lonvec .-180.
 
-using_precip = false #FIX
-non_dim = false
+using_precip = true 
+non_dim = false  
 use_metrics = true
-parent_folder =  non_dim ? "nondim" : "temp_precip"
-parent_folder = use_metrics ? "metrics" : parent_folder
-parent_folder = "temp_metrics" #FIX THIS
+if using_precip
+    parent_folder = "temp_precip"
+else
+    parent_folder = "temp"
+end
+if non_dim
+    parent_folder = "nondim"
+end
+if use_metrics && using_precip
+    parent_folder = "metrics"
+elseif use_metrics && !using_precip
+    parent_folder = "temp_metrics"
+end
+
 
 ## generate statistics
 scenarios = ["historical", "ssp585", "ssp245", "ssp119"]
@@ -78,9 +89,9 @@ function calculate_rmse(numbers, variable, scenarios; rel_error=false, for_k=fal
 
             else
                 rmse_stds = sqrt.(sum((sqrt.(true_var) .- sqrt.(ens_vars)).^2, dims=3)[:,:,1]./size(true_var)[3]) #time average rmse (shaped as a map)
-                rmse_stds_time = sqrt.(weighted_avg((sqrt.(true_var) .- sqrt.(ens_vars)).^2, latvec; already_weighted=use_metrics)) #spatial average rmse (shaped as a timeseries)
+                rmse_stds_time = sqrt.(weighted_avg((sqrt.(true_var) .- sqrt.(ens_vars)).^2, latvec))#; already_weighted=use_metrics)) #spatial average rmse (shaped as a timeseries)
                 rmse_means = sqrt.(sum((true_ens_mean.-ens_means).^2, dims=3)[:,:,1]./size(true_ens_mean)[3]) #time average rmse (shaped as a map)
-                rmse_means_time = sqrt.(weighted_avg((true_ens_mean.-ens_means).^2, latvec; already_weighted=use_metrics)) #spatial average rmse (shaped as a timeseries
+                rmse_means_time = sqrt.(weighted_avg((true_ens_mean.-ens_means).^2, latvec))#; already_weighted=use_metrics)) #spatial average rmse (shaped as a timeseries
 
                 write(wfile, "rmse_stds_$(variable)_$(number)", rmse_stds)
                 write(wfile, "rmse_stds_time_$(variable)_$(number)", rmse_stds_time)

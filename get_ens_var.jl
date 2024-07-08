@@ -11,12 +11,22 @@ scenarios = ["historical", "ssp585", "ssp245", "ssp119"]
 # M, N, L = size(ts3.data)
 # latvec = ts3.latvec
 
-using_precip = false
-non_dim = false
+using_precip = true 
+non_dim = false  
 use_metrics = true
-parent_folder =  non_dim ? "nondim" : "temp_precip"
-parent_folder = use_metrics ? "metrics" : parent_folder
-parent_folder = "temp_metrics" #FIX THIS
+if using_precip
+    parent_folder = "temp_precip"
+else
+    parent_folder = "temp"
+end
+if non_dim
+    parent_folder = "nondim"
+end
+if use_metrics && using_precip
+    parent_folder = "metrics"
+elseif use_metrics && !using_precip
+    parent_folder = "temp_metrics"
+end
 
 
 function get_ens_vars(d, true_ens_gmt; get_means=false, k=1) # OR the means lol
@@ -28,10 +38,7 @@ function get_ens_vars(d, true_ens_gmt; get_means=false, k=1) # OR the means lol
     chol_coefs = read(hfile, "chol_coefs")
     basis = read(hfile, "basis")
     if use_metrics
-        metric = read(hfile, "metric") #this will eventually be IMPLEMENTED
-        # hfile = h5open("data/$(parent_folder)/temp_precip_basis_1000d.hdf5", "r")
-        # metric = read(hfile, "metric")
-        # close(hfile)
+        metric = read(hfile, "metric") 
     end
     close(hfile)
     ens_vars_tas = zeros(M, N, L)

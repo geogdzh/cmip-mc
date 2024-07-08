@@ -6,17 +6,30 @@ include("emulator_util.jl")
 #################### ok let's test it out for real
 
 #get a sample gmt list and the latvec to be used later on
-# file_head = "/net/fs06/d3/mgeo/CMIP6/interim/"
-file_head = "/Users/masha/urop_2022/cmip/CMIP6/interim/"
+file_head = "/net/fs06/d3/mgeo/CMIP6/interim/"
+# file_head = "/Users/masha/urop_2022/cmip/CMIP6/interim/"
 file3 = file_head*"ssp585/tas/r1i1p1f1_ssp585_tas.nc"
 ts3 = ncData(file3, "tas")
 lonvec, latvec = ts3.lonvec[:], ts3.latvec[:]
 lonvec2 = lonvec .-180.
 
-non_dim = false
+using_precip = true 
+non_dim = false  
 use_metrics = true
-parent_folder =  non_dim ? "nondim" : "temp_precip"
-parent_folder = use_metrics ? "metrics" : parent_folder
+if using_precip
+    parent_folder = "temp_precip"
+else
+    parent_folder = "temp"
+end
+if non_dim
+    parent_folder = "nondim"
+end
+if use_metrics && using_precip
+    parent_folder = "metrics"
+elseif use_metrics && !using_precip
+    parent_folder = "temp_metrics"
+end
+
 ## 
 scenarios = ["historical", "ssp585", "ssp245", "ssp119"]
 scenario_colors = Dict("historical" => :red4, "ssp585" => :red, "ssp245" => :magenta3, "ssp119" => :indigo)
@@ -58,7 +71,7 @@ end
 numbers = [20]#[20, 100]
 ks = [x for x in 1:2]
 
-variable = "temp" #temp/pr
+variable = "pr" #temp/pr
 begin 
     fig = Figure(resolution=(1500,1000)) #
     # lims = Dict("temp" => (0.15, 0.6), "pr" => (3e-6, 9e-6))

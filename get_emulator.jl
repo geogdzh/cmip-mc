@@ -3,17 +3,27 @@ include("utils.jl")
 include("eof_util.jl")
 include("emulator_util.jl")
 
-# L1, L2 = 1872, 1128 #for CMIP5
 L1, L2 = 1980, 1032 #for CMIP6
 scenario = "ssp585"
 # scenario = "ssp119"
 offload = false
-using_precip = false #doesn't really toggle anything #FIX
-non_dim = false #using precip must also be true
+using_precip = true 
+non_dim = false  
 use_metrics = true
-parent_folder =  non_dim ? "nondim" : "temp_precip"
-parent_folder = use_metrics ? "metrics" : parent_folder
-parent_folder = "temp_metrics" #FIX !!!
+if using_precip
+    parent_folder = "temp_precip"
+else
+    parent_folder = "temp"
+end
+if non_dim
+    parent_folder = "nondim"
+end
+if use_metrics && using_precip
+    parent_folder = "metrics"
+elseif use_metrics && !using_precip
+    parent_folder = "temp_metrics"
+end
+
 
 ######### load in basis
 hfile = using_precip ? h5open("data/$(parent_folder)/temp_precip_basis_2000d.hdf5", "r") : h5open("data/$(parent_folder)/temp_basis_2000d.hdf5", "r") #this basis is calculated from just one ens member
@@ -30,7 +40,7 @@ d = parse(Int, ARGS[1])
 basis = basis[:, 1:d]
 
 ########## load in training data
-hfile = using_precip ?  h5open("data/$(parent_folder)/training_data_withpr_$(scenario)_100d_49ens.hdf5", "r") : h5open("data/$(parent_folder)/training_data_$(scenario)_$(d)d_49ens.hdf5", "r")
+hfile = using_precip ?  h5open("data/$(parent_folder)/training_data_withpr_$(scenario)_$(d)d_49ens.hdf5", "r") : h5open("data/$(parent_folder)/training_data_$(scenario)_$(d)d_49ens.hdf5", "r")
 ens_projts = read(hfile, "projts")[1:d, :, :]
 ens_gmt = read(hfile, "ens_gmt")
 num_ens_members = read(hfile, "num_ens_members")
@@ -67,3 +77,20 @@ end
 write(hfile, "num_ens_members", num_ens_members)
 write(hfile, "ens_gmt", ens_gmt)
 close(hfile)
+
+
+# ###
+
+# begin
+#     fig = Figure(resolution=(1500, 1000))
+#     ax = Axis(fig[1,1])
+#     for i in 1:49
+#         scatter!(ax, ens_gmt[:], -1 .* ens_projts[20,1:12:end,i], color=:black, alpha=0.3)
+#         #[time_history..., time_future...]
+#     end
+#     means = mean(ens_projts, dims=3)[:,:]
+#     scatter!(ax, ens_gmt[:], -1 .* means[20, 1:12:end], color=:red, alpha=1)
+#     # plot!(ax, ens_gmt[:], ens_gmt[:], color=:red, alpha=0.5)
+#     display(fig)
+# end
+# mean(month_to_year_avg(means[1,:]) .+ ens_gmt[:])

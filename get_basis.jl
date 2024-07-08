@@ -3,13 +3,25 @@ include("utils.jl")
 include("eof_util.jl")
 
 #### get basis - based ONLY on one ens memeber (should this be substantiated?)
-non_dim = false
+using_precip = true 
+non_dim = false  
 use_metrics = true
+if using_precip
+    parent_folder = "temp_precip"
+else
+    parent_folder = "temp"
+end
+if non_dim
+    parent_folder = "nondim"
+end
+if use_metrics && using_precip
+    parent_folder = "metrics"
+elseif use_metrics && !using_precip
+    parent_folder = "temp_metrics"
+end
 
 file_head = "/net/fs06/d3/mgeo/CMIP6/interim/"
 # file_head = "/Users/masha/urop_2022/cmip/CMIP6/interim/" ### CHANGE HERE FOR DIFF LOCATION
-parent_folder = non_dim ? "nondim" : "temp_precip"
-parent_folder = use_metrics ? "metrics" : parent_folder
 
 #first ensemble member of historical run
 file_tail = "historical/tas/r10i1p1f1_historical_tas.nc"
@@ -67,3 +79,24 @@ if use_metrics
     write(hfile, "metric", metric)
 end
 close(hfile)
+
+
+
+
+# ###
+
+hfile = h5open("data/metrics/temp_precip_basis_2000d.hdf5", "r")
+basis = read(hfile, "basis")
+close(hfile)
+heatmap(shape_data(basis[1:M*N,20], M, N))
+
+hfile = h5open("data/temp_precip/temp_precip_basis_2000d.hdf5", "r")
+ogbasis = read(hfile, "basis")
+close(hfile)
+heatmap(shape_data(ogbasis[1:M*N,20], M, N))
+
+basis = basis[:,1:1000]
+basis == ogbasis
+basis[1:M*N,20] == ogbasis[1:M*N,20]
+
+isapprox(basis, ogbasis)
